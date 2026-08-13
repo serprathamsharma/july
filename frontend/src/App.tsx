@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, Activity } from 'lucide-react';
 import { MicButton, type MicState } from './components/MicButton';
+import { AnswerCard } from './components/AnswerCard';
 import { AnalyticsView } from './components/AnalyticsView';
-import { processTextQuery, processVoiceQuery } from './services/api';
+import { processTextQuery, processVoiceQuery, type RAGPipelineResponse } from './services/api';
 
 export const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<'hero' | 'voice-rag' | 'analytics'>('hero');
   const [micState, setMicState] = useState<MicState>('Idle');
+  const [ragResponse, setRagResponse] = useState<RAGPipelineResponse | null>(null);
+  const [selectedMode, setSelectedMode] = useState<'RAG' | 'End-to-End'>('End-to-End');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isManualScrollingRef = useRef(false);
 
@@ -106,16 +109,18 @@ export const App: React.FC = () => {
 
     try {
       const queryToSubmit = liveTranscript?.trim();
+      let response: RAGPipelineResponse;
 
       if (queryToSubmit) {
-        await processTextQuery(queryToSubmit, 'End-to-End');
+        response = await processTextQuery(queryToSubmit, selectedMode);
       } else {
-        await processVoiceQuery(audioBlob, 'en-IN');
+        response = await processVoiceQuery(audioBlob, 'en-IN');
       }
 
+      setRagResponse(response);
       setMicState('Complete');
     } catch (err) {
-      console.error(err);
+      console.error('Error processing audio/text query:', err);
       setMicState('Error');
     }
   };
@@ -244,7 +249,24 @@ export const App: React.FC = () => {
             onStateChange={setMicState}
           />
 
-          {/* Grounded Answer Card Removed */}
+          {/* Grounded Answer Card */}
+          {ragResponse && (
+            <AnswerCard
+              response={ragResponse}
+              selectedMode={selectedMode}
+              onModeToggle={async (newMode) => {
+                setSelectedMode(newMode);
+                if (ragResponse.query) {
+                  try {
+                    const updated = await processTextQuery(ragResponse.query, newMode);
+                    setRagResponse(updated);
+                  } catch (e) {
+                    console.error('Mode toggle failed:', e);
+                  }
+                }
+              }}
+            />
+          )}
         </div>
       </section>
 

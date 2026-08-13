@@ -18,6 +18,7 @@ export const MicButton: React.FC<MicButtonProps> = ({
 }) => {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [liveTranscript, setLiveTranscript] = useState<string>('');
+  const liveTranscriptRef = useRef<string>('');
   const recognitionRef = useRef<any>(null);
   const audioChunks = useRef<Blob[]>([]);
   const [audioLevels, setAudioLevels] = useState<number[]>([15, 30, 45, 20, 35]);
@@ -42,6 +43,7 @@ export const MicButton: React.FC<MicButtonProps> = ({
   const startRecording = async () => {
     try {
       setLiveTranscript('');
+      liveTranscriptRef.current = '';
       if (onLiveTranscriptChange) onLiveTranscriptChange('');
 
       // Initialize Web Speech API for real-time speech recognition
@@ -58,6 +60,7 @@ export const MicButton: React.FC<MicButtonProps> = ({
             currentTranscript += event.results[i][0].transcript;
           }
           setLiveTranscript(currentTranscript);
+          liveTranscriptRef.current = currentTranscript;
           if (onLiveTranscriptChange) {
             onLiveTranscriptChange(currentTranscript);
           }
@@ -84,7 +87,7 @@ export const MicButton: React.FC<MicButtonProps> = ({
 
       recorder.onstop = () => {
         const audioBlob = new Blob(audioChunks.current, { type: 'audio/wav' });
-        const finalTranscript = liveTranscript.trim();
+        const finalTranscript = liveTranscriptRef.current.trim();
         onAudioRecorded(audioBlob, finalTranscript);
         stream.getTracks().forEach((track) => track.stop());
       };
