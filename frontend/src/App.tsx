@@ -177,12 +177,12 @@ export const App: React.FC = () => {
           {/* Headline */}
           <h1 className="headline">
             <span className="headline-line line-1">Meet July</span>
-            <span className="headline-line line-2">Voice-Enabled RAG</span>
+            <span className="headline-line line-2">Designed To Evolve</span>
           </h1>
 
           {/* Subhead */}
           <p className="subhead anim" style={{ '--d': '0.28s' } as React.CSSProperties}>
-            Build applications that reason, adapt and collaborate using a modular AI platform designed for production.
+            July is a sub-200ms voice-enabled grounded RAG platform engineered for real-time speech transcription, hybrid vector retrieval, and automated answer playback.
           </p>
 
           {/* Glowing CTA Button -> Smooth Scroll to #voice-rag */}
