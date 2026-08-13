@@ -177,7 +177,6 @@ export const App: React.FC = () => {
           {/* Headline */}
           <h1 className="headline">
             <span className="headline-line line-1">Meet July</span>
-            <span className="headline-line line-2">Designed To Evolve</span>
           </h1>
 
           {/* Subhead */}
