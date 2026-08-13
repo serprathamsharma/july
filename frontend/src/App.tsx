@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Sparkles, Activity } from 'lucide-react';
+import { Sparkles, Activity } from 'lucide-react';
 import { MicButton, type MicState } from './components/MicButton';
 import { AnalyticsView } from './components/AnalyticsView';
 import { processTextQuery, processVoiceQuery } from './services/api';
@@ -7,8 +7,6 @@ import { processTextQuery, processVoiceQuery } from './services/api';
 export const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<'hero' | 'voice-rag' | 'analytics'>('hero');
   const [micState, setMicState] = useState<MicState>('Idle');
-  const [textInput, setTextInput] = useState('');
-  const [loading, setLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Animated Stats Counter State
@@ -64,28 +62,11 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleTextSubmit = async (queryText: string) => {
-    if (!queryText.trim() || loading) return;
-    setLoading(true);
-    setMicState('Generating');
-
-    try {
-      await processTextQuery(queryText.trim(), 'RAG');
-      setMicState('Complete');
-    } catch (err) {
-      console.error(err);
-      setMicState('Error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleAudioRecorded = async (audioBlob: Blob, liveTranscript?: string) => {
-    setLoading(true);
     setMicState('Generating');
 
     try {
-      const queryToSubmit = liveTranscript?.trim() || textInput.trim();
+      const queryToSubmit = liveTranscript?.trim();
 
       if (queryToSubmit) {
         await processTextQuery(queryToSubmit, 'End-to-End');
@@ -97,8 +78,6 @@ export const App: React.FC = () => {
     } catch (err) {
       console.error(err);
       setMicState('Error');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -214,9 +193,9 @@ export const App: React.FC = () => {
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-2 text-center">
-            Ask Questions via Voice or Text
+            Ask Questions via Voice
           </h2>
-          <p className="text-slate-400 text-sm max-w-md text-center mb-6">
+          <p className="text-slate-400 text-sm max-w-md text-center mb-8">
             Real-time speech recognition, sub-200ms vector + BM25 hybrid search, guardrails, and spoken answer playback.
           </p>
 
@@ -225,33 +204,7 @@ export const App: React.FC = () => {
             state={micState}
             onAudioRecorded={handleAudioRecorded}
             onStateChange={setMicState}
-            onLiveTranscriptChange={(liveText) => setTextInput(liveText)}
           />
-
-          {/* Text Query Input Bar */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleTextSubmit(textInput);
-            }}
-            className="w-full max-w-xl my-4 flex items-center gap-2 glass-panel p-2 rounded-2xl border border-slate-700/60 shadow-xl"
-          >
-            <input
-              type="text"
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              placeholder="Ask anything or speak in real time..."
-              className="flex-1 bg-transparent px-4 py-2.5 text-sm text-slate-100 placeholder-slate-400 focus:outline-none"
-            />
-            <button
-              type="submit"
-              disabled={!textInput.trim() || loading}
-              className="p-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-all shadow-md cursor-pointer"
-              aria-label="Send query"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
 
           {/* Grounded Answer Card Removed */}
         </div>
