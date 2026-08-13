@@ -124,7 +124,14 @@ export const App: React.FC = () => {
         <header className="header">
           {/* Logo Button */}
           <button onClick={() => scrollToSection('hero')} className="logo-btn" aria-label="Home">
-            <img src="/assets/logo.webp" alt="" width="52" height="52" className="logo-img" />
+            <svg viewBox="0 0 100 100" className="w-7 h-7">
+              <circle cx="50" cy="50" r="46" fill="#ffffff" />
+              <circle cx="50" cy="50" r="40" fill="none" stroke="#000000" strokeWidth="7" />
+              <circle cx="50" cy="50" r="25" fill="#ffffff" stroke="#000000" strokeWidth="6" />
+              <circle cx="50" cy="50" r="12" fill="#000000" />
+              <line x1="50" y1="10" x2="50" y2="90" stroke="#000000" strokeWidth="6" />
+              <line x1="10" y1="50" x2="90" y2="50" stroke="#000000" strokeWidth="6" />
+            </svg>
           </button>
 
           {/* Desktop Nav Pill (white) */}
