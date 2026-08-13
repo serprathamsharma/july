@@ -53,6 +53,32 @@ export const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  // IntersectionObserver to dynamically update activeSection on scroll
+  useEffect(() => {
+    const sectionIds: Array<'hero' | 'voice-rag' | 'analytics'> = ['hero', 'voice-rag', 'analytics'];
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id as 'hero' | 'voice-rag' | 'analytics');
+          }
+        });
+      },
+      {
+        root: null,
+        rootMargin: '-30% 0px -40% 0px',
+        threshold: 0.2,
+      }
+    );
+
+    sectionIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   const scrollToSection = (sectionId: 'hero' | 'voice-rag' | 'analytics') => {
     setActiveSection(sectionId);
     setMobileMenuOpen(false);
@@ -114,7 +140,6 @@ export const App: React.FC = () => {
             >
               Analytics
             </button>
-            <a href="#contact" className="nav-link">Contact</a>
           </nav>
 
           {/* Mobile Hamburger Button */}
@@ -251,7 +276,6 @@ export const App: React.FC = () => {
               >
                 Analytics
               </button>
-              <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="mobile-nav-link">Contact</a>
             </nav>
           </div>
         </>
