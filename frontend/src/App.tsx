@@ -3,7 +3,6 @@ import { Send, HelpCircle, Sparkles, Activity } from 'lucide-react';
 import { MicButton, type MicState } from './components/MicButton';
 import { AnswerCard } from './components/AnswerCard';
 import { AnalyticsView } from './components/AnalyticsView';
-import { WaveBackground } from './components/WaveBackground';
 import { type RAGPipelineResponse, processTextQuery, processVoiceQuery } from './services/api';
 
 export const App: React.FC = () => {
@@ -120,9 +119,6 @@ export const App: React.FC = () => {
 
   return (
     <div className="page-container select-none">
-      {/* Animated Dark Wave Background Canvas */}
-      <WaveBackground />
-
       {/* 1) STICKY HEADER */}
       <div className="header-wrapper">
         <header className="header">
