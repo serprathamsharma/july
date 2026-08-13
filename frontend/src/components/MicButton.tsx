@@ -124,14 +124,14 @@ export const MicButton: React.FC<MicButtonProps> = ({
   const getButtonStyles = () => {
     switch (state) {
       case 'Listening':
-        return 'bg-rose-600 hover:bg-rose-500 shadow-[0_0_40px_rgba(225,29,72,0.7)] animate-pulse';
+        return 'bg-white text-rose-600 border border-rose-500/30 shadow-[0_0_30px_rgba(244,63,94,0.45)] animate-pulse';
       case 'Processing':
       case 'Generating':
-        return 'bg-indigo-600/80 cursor-wait shadow-[0_0_30px_rgba(99,102,241,0.5)]';
+        return 'bg-slate-900/60 border border-slate-700/60 text-white cursor-wait';
       case 'Error':
-        return 'bg-amber-600 hover:bg-amber-500 shadow-[0_0_30px_rgba(217,119,6,0.6)]';
+        return 'bg-white text-amber-600 border border-amber-500/30 shadow-[0_0_30px_rgba(217,119,6,0.4)]';
       default:
-        return 'bg-indigo-600 hover:bg-indigo-500 glow-button';
+        return 'bg-white text-black hover:scale-105 shadow-[0_0_24px_rgba(255,255,255,0.32)] hover:shadow-[0_0_32px_rgba(255,255,255,0.48)] cursor-pointer';
     }
   };
 
@@ -145,13 +145,13 @@ export const MicButton: React.FC<MicButtonProps> = ({
         aria-label="Microphone Query"
       >
         {state === 'Listening' ? (
-          <Square className="w-10 h-10 text-white fill-white" />
+          <Square className="w-10 h-10 fill-current" />
         ) : state === 'Processing' || state === 'Generating' ? (
-          <Loader2 className="w-12 h-12 text-white animate-spin" />
+          <Loader2 className="w-12 h-12 animate-spin" />
         ) : state === 'Error' ? (
-          <AlertCircle className="w-10 h-10 text-white" />
+          <AlertCircle className="w-10 h-10" />
         ) : (
-          <Mic className="w-11 h-11 text-white" />
+          <Mic className="w-11 h-11" />
         )}
       </button>
 
