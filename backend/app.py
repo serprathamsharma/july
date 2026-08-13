@@ -42,7 +42,16 @@ async def lifespan(app: FastAPI):
 
     orchestrator = RAGOrchestrator(faiss_index=faiss_idx, bm25_index=bm25_idx)
 
-    # Reset analytics on startup to clear stale high-latency entries from previous Gemini API deployments
+    # Warm up the embedding model and measure its latency on this hardware
+    from backend.embeddings.encoder import EmbeddingEncoder
+    encoder = EmbeddingEncoder()
+    encoder.warmup()
+    if encoder.is_fast:
+        print(f"[Startup] Embedding model is fast on this hardware — using full hybrid retrieval (Dense + BM25)")
+    else:
+        print(f"[Startup] Embedding model is slow on this hardware — using BM25-only retrieval for sub-200ms SLA")
+
+    # Reset analytics on startup to clear stale high-latency entries from previous deployments
     analytics_store.reset()
 
     print("[FastAPI App Startup] RAG Orchestrator successfully initialized and ready!")

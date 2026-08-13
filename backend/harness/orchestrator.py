@@ -70,33 +70,44 @@ class RAGOrchestrator:
         # Stage 2: Routing Strategy
         strategy = self.router.route_query(query)
 
-        # Stage 3: Embedding Generation
-        timer.start_step()
-        q_emb = self.encoder.encode(query)
-        timer.stop_step("embedding_ms")
+        # Stage 3 & 4: Adaptive Retrieval — skip expensive dense embedding when hardware is too slow
+        if self.encoder.is_fast:
+            # Fast hardware: Full hybrid retrieval (Dense + BM25)
+            timer.start_step()
+            q_emb = self.encoder.encode(query)
+            timer.stop_step("embedding_ms")
 
-        # Stage 4: Concurrent Parallel Retrieval (Dense + BM25)
-        t_ret_start = time.perf_counter()
-        
-        async def run_dense():
-            d_start = time.perf_counter()
-            res = self.faiss_index.search(q_emb, k=strategy.top_k * 2)
-            d_ms = (time.perf_counter() - d_start) * 1000
-            return res, d_ms
+            t_ret_start = time.perf_counter()
+            
+            async def run_dense():
+                d_start = time.perf_counter()
+                res = self.faiss_index.search(q_emb, k=strategy.top_k * 2)
+                d_ms = (time.perf_counter() - d_start) * 1000
+                return res, d_ms
 
-        async def run_bm25():
-            b_start = time.perf_counter()
-            res = self.bm25_index.search(query, k=strategy.top_k * 2)
-            b_ms = (time.perf_counter() - b_start) * 1000
-            return res, b_ms
+            async def run_bm25():
+                b_start = time.perf_counter()
+                res = self.bm25_index.search(query, k=strategy.top_k * 2)
+                b_ms = (time.perf_counter() - b_start) * 1000
+                return res, b_ms
 
-        (dense_results, dense_ms), (bm25_results, bm25_ms) = await asyncio.gather(
-            run_dense(),
-            run_bm25()
-        )
+            (dense_results, dense_ms), (bm25_results, bm25_ms) = await asyncio.gather(
+                run_dense(),
+                run_bm25()
+            )
 
-        timer.metrics.dense_retrieval_ms = round(dense_ms, 2)
-        timer.metrics.bm25_ms = round(bm25_ms, 2)
+            timer.metrics.dense_retrieval_ms = round(dense_ms, 2)
+            timer.metrics.bm25_ms = round(bm25_ms, 2)
+        else:
+            # Slow hardware (Railway CPU): BM25-only retrieval — skips 14s embedding encode
+            timer.metrics.embedding_ms = 0.0
+            timer.metrics.dense_retrieval_ms = 0.0
+
+            timer.start_step()
+            bm25_results = self.bm25_index.search(query, k=strategy.top_k * 2)
+            bm25_ms = timer.stop_step("bm25_ms")
+
+            dense_results = []
 
         # Stage 5: Score Fusion (RRF)
         t_fus_start = time.perf_counter()
