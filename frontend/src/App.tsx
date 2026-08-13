@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, HelpCircle, Sparkles, Activity } from 'lucide-react';
+import { Send, Sparkles, Activity } from 'lucide-react';
 import { MicButton, type MicState } from './components/MicButton';
 import { AnalyticsView } from './components/AnalyticsView';
 import { processTextQuery, processVoiceQuery } from './services/api';
@@ -63,14 +63,6 @@ export const App: React.FC = () => {
       element.scrollIntoView({ behavior: 'smooth' });
     }
   };
-
-  const sampleQueries = [
-    "What is the MSMARCO-XI dataset designed for?",
-    "How does RAG reduce LLM hallucinations?",
-    "What indexing algorithms are supported by FAISS?",
-    "What role do guardrails play in a RAG pipeline?",
-    "What is the capital city of Mars?"
-  ];
 
   const handleTextSubmit = async (queryText: string) => {
     if (!queryText.trim() || loading) return;
@@ -260,28 +252,6 @@ export const App: React.FC = () => {
               <Send className="w-4 h-4" />
             </button>
           </form>
-
-          {/* Sample Query Suggestions */}
-          <div className="w-full max-w-xl mb-6">
-            <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 mb-2.5">
-              <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Try sample queries:</span>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              {sampleQueries.map((q, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setTextInput(q);
-                    handleTextSubmit(q);
-                  }}
-                  className="px-3 py-1.5 bg-slate-900/80 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-200 border border-slate-800 hover:border-indigo-500/40 rounded-xl text-xs transition-all text-left cursor-pointer"
-                >
-                  "{q}"
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Grounded Answer Card Removed */}
         </div>
