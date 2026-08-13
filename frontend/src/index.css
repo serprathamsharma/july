@@ -377,12 +377,14 @@ body {
 .content-section {
   width: 100%;
   max-width: 900px;
-  min-height: 90vh;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 16px;
+  padding: 120px 20px 140px;
+  scroll-margin-top: 20px;
   position: relative;
   z-index: 2;
 }
