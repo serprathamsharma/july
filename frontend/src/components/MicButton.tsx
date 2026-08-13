@@ -192,8 +192,8 @@ export const MicButton: React.FC<MicButtonProps> = ({
       )}
 
       {/* Status Label */}
-      <div className="mt-4 text-center">
-        <span className="text-sm font-medium tracking-wide uppercase text-slate-400">
+      <div className="mt-8 text-center">
+        <span className="text-xs sm:text-sm font-medium tracking-wider uppercase text-slate-400">
           {state === 'Listening' && 'Tap the red button to finish speaking'}
           {state === 'Processing' && 'STT Transcription in progress...'}
           {state === 'Generating' && 'Grounded RAG Retrieval & LLM Generation...'}
