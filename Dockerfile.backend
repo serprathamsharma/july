@@ -23,8 +23,8 @@ RUN mkdir -p data/indexes
 # This avoids a ~2 minute HuggingFace download on every cold start
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
 
-# Expose port (Railway sets $PORT automatically)
+# Expose port
 EXPOSE 8000
 
-# Start the server — Railway injects $PORT at runtime
-CMD ["sh", "-c", "uvicorn backend.app:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start the server on port 8000
+CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]
