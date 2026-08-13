@@ -36,7 +36,7 @@ class SarvamSTTProvider(BaseSTTProvider):
         }
 
         data = {
-            "model": "saaras:v1",
+            "model": "saaras:v2.5",
             "language_code": language_code or "hi-IN",
             "with_timestamps": "false"
         }
