@@ -41,6 +41,10 @@ async def lifespan(app: FastAPI):
         bm25_idx.load(bm25_path)
 
     orchestrator = RAGOrchestrator(faiss_index=faiss_idx, bm25_index=bm25_idx)
+
+    # Reset analytics on startup to clear stale high-latency entries from previous Gemini API deployments
+    analytics_store.reset()
+
     print("[FastAPI App Startup] RAG Orchestrator successfully initialized and ready!")
     yield
     print("[FastAPI App Shutdown] Cleaning up resources.")

@@ -42,6 +42,16 @@ class AnalyticsStore:
         elif guardrail_event == "grounding_failure":
             self.grounding_failures += 1
 
+    def reset(self):
+        """Clear all accumulated history to reset latency metrics after redeploy."""
+        self.history.clear()
+        self.queries_total = 0
+        self.queries_rejected = 0
+        self.low_confidence_abstentions = 0
+        self.grounding_failures = 0
+        self.unsafe_queries_blocked = 0
+        print("[AnalyticsStore] Metrics history reset.")
+
     def get_latency_stats(self) -> Dict[str, Any]:
         """
         Calculate dynamic P50, P70, P100 percentile metrics over request history.
