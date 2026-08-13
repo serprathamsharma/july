@@ -160,29 +160,6 @@ export const App: React.FC = () => {
       <main className="hero">
         {activeView === 'landing' && (
           <div className="w-full flex flex-col items-center">
-            {/* Trust Row */}
-            <div className="trust-row anim" style={{ '--d': '0.05s' } as React.CSSProperties}>
-              <div className="avatars">
-                <div className="avatar-ring ring-1">
-                  <div className="avatar-inner">
-                    <i className="fa-brands fa-microsoft"></i>
-                  </div>
-                </div>
-                <div className="avatar-ring ring-2">
-                  <div className="avatar-inner">
-                    <i className="fa-brands fa-amazon"></i>
-                  </div>
-                </div>
-                <div className="avatar-ring ring-3">
-                  <div className="avatar-inner">
-                    <i className="fa-brands fa-google"></i>
-                  </div>
-                </div>
-              </div>
-              <div className="trust-pill">
-                <span>Trusted by 2000+ Enterprises</span>
-              </div>
-            </div>
 
             {/* Headline */}
             <h1 className="headline">
