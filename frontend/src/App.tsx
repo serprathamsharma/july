@@ -176,8 +176,8 @@ export const App: React.FC = () => {
         <div className="hero-body">
           {/* Headline */}
           <h1 className="headline">
-            <span className="headline-line line-1">Intelligence</span>
-            <span className="headline-line line-2">Designed To Evolve</span>
+            <span className="headline-line line-1">Meet July</span>
+            <span className="headline-line line-2">Voice-Enabled RAG</span>
           </h1>
 
           {/* Subhead */}
