@@ -16,15 +16,13 @@ class SarvamSTTProvider(BaseSTTProvider):
         start = time.perf_counter()
         
         if not self.api_key or self.api_key.startswith("your_"):
-            # Fallback mock for audio byte processing when key is absent
-            stt_ms = (time.perf_counter() - start) * 1000 + 15.0
+            stt_ms = (time.perf_counter() - start) * 1000
             return {
-                "text": "What are the primary factors influencing economic growth in India?",
-                "confidence": 0.92,
-                "language": language_code or "en-IN",
+                "text": "",
+                "confidence": 0.0,
+                "error": "SARVAM_API_KEY is not configured on the backend server.",
                 "stt_ms": round(stt_ms, 2),
-                "provider": "sarvam_simulated",
-                "warning": "SARVAM_API_KEY not configured; using simulated STT output."
+                "provider": "sarvam"
             }
 
         headers = {

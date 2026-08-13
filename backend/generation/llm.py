@@ -86,7 +86,8 @@ class GroundedLLMGenerator:
                     f"QUESTION: {query}\n\n"
                     "JSON RESPONSE:"
                 )
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.gemini_key}"
+                model_name = settings.LLM_MODEL if (settings.LLM_MODEL and "2.5" not in settings.LLM_MODEL) else "gemini-2.0-flash"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.gemini_key}"
                 payload = {
                     "contents": [{"parts": [{"text": prompt}]}],
                     "generationConfig": {"response_mime_type": "application/json"}

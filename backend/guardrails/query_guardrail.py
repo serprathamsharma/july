@@ -36,4 +36,37 @@ class QueryGuardrail:
                     "message": "This query violated security policies and cannot be processed."
                 }
 
+        # Conversational & Utility Direct Intent Handling
+        lower_q = cleaned.lower()
+        if re.search(r'\b(what|whats|what\'s)?\s*(is)?\s*(the)?\s*(current)?\s*(date|day|today)\b', lower_q):
+            import datetime
+            now_str = datetime.datetime.now().strftime("%A, %B %d, %Y")
+            return {
+                "valid": False,
+                "supported": True,
+                "confidence": 1.0,
+                "reason": "direct_utility_query",
+                "message": f"Today's date is {now_str}."
+            }
+
+        if re.search(r'\b(what|whats|what\'s)?\s*(is)?\s*(the)?\s*(current)?\s*time\b', lower_q):
+            import datetime
+            time_str = datetime.datetime.now().strftime("%I:%M %p")
+            return {
+                "valid": False,
+                "supported": True,
+                "confidence": 1.0,
+                "reason": "direct_utility_query",
+                "message": f"The current time is {time_str}."
+            }
+
+        if re.search(r'^(hi|hello|hey|who are you|what is july)\b', lower_q):
+            return {
+                "valid": False,
+                "supported": True,
+                "confidence": 1.0,
+                "reason": "greeting_query",
+                "message": "Hello! I am July, a sub-200ms voice-enabled grounded RAG platform. How can I help you today?"
+            }
+
         return {"valid": True, "reason": None, "message": "OK"}

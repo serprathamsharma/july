@@ -55,13 +55,13 @@ class RAGOrchestrator:
         if not q_val["valid"]:
             timer.stop_step("guardrail_ms")
             final_metrics = timer.finalize()
-            analytics_store.record_request(final_metrics, guardrail_event="query_rejected")
+            analytics_store.record_request(final_metrics, guardrail_event=q_val.get("reason", "query_rejected"))
             return RAGPipelineResponse(
                 request_id=timer.request_id,
                 query=query,
                 answer=q_val["message"],
-                supported=False,
-                confidence=0.0,
+                supported=q_val.get("supported", False),
+                confidence=q_val.get("confidence", 0.0),
                 citations=[],
                 retrieved_chunks=[],
                 metrics=final_metrics

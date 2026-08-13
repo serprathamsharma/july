@@ -102,18 +102,20 @@ export const MicButton: React.FC<MicButtonProps> = ({
   };
 
   const stopRecording = () => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {
-        console.warn(e);
+    onStateChange('Processing');
+    setTimeout(() => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.warn(e);
+        }
       }
-    }
 
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-      onStateChange('Processing');
-    }
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+    }, 250);
   };
 
   const handleClick = () => {

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = Field(default="grounded_local")
     GEMINI_API_KEY: str = Field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
     OPENAI_API_KEY: str = Field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
-    LLM_MODEL: str = Field(default="gemini-2.5-flash")
+    LLM_MODEL: str = Field(default="gemini-2.0-flash")
 
     # Embedding Model
     EMBEDDING_MODEL: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")

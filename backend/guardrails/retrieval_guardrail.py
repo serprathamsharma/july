@@ -24,20 +24,25 @@ class RetrievalGuardrail:
         top_dense = top_chunk.dense_score
         top_bm25 = top_chunk.bm25_score
 
-        # Confidence calculation
-        confidence = min(1.0, max_rrf * 50.0 + top_dense * 0.4)
+        # Realistic confidence calculation across hybrid dense & lexical scores
+        rrf_ratio = min(1.0, max_rrf / 0.01639)
+        bm25_ratio = min(1.0, top_bm25 / 12.0)
+        dense_ratio = max(0.0, top_dense)
 
-        if max_rrf < self.min_threshold and top_dense < 0.25 and top_bm25 < 1.0:
+        confidence = round(min(1.0, (dense_ratio * 0.45) + (bm25_ratio * 0.35) + (rrf_ratio * 0.20)), 3)
+
+        # Abstain if both dense vector similarity and BM25 score indicate weak relevance
+        if top_dense < 0.38 and top_bm25 < 3.0:
             return {
                 "passed": False,
-                "confidence": round(confidence, 3),
+                "confidence": confidence,
                 "reason": "low_relevance_score",
                 "message": "I couldn't find enough relevant information in the knowledge base to answer that."
             }
 
         return {
             "passed": True,
-            "confidence": round(confidence, 3),
+            "confidence": confidence,
             "reason": None,
             "message": "Sufficient context retrieved."
         }
