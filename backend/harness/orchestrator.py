@@ -47,10 +47,13 @@ class RAGOrchestrator:
         timer = RequestTimer(mode=mode)
         timer.metrics.stt_ms = round(stt_ms, 2)
 
-        # Stage 1: Query Preprocessing & Validation
+        # Stage 1: Query Preprocessing, Normalization & Validation
         timer.start_step()
         q_val = self.query_guardrail.validate_query(query)
         timer.stop_step("query_processing_ms")
+        
+        # Use normalized query for retrieval
+        normalized_query = self.query_guardrail.normalize_query(query)
 
         if not q_val["valid"]:
             timer.stop_step("guardrail_ms")
@@ -58,7 +61,7 @@ class RAGOrchestrator:
             analytics_store.record_request(final_metrics, guardrail_event=q_val.get("reason", "query_rejected"))
             return RAGPipelineResponse(
                 request_id=timer.request_id,
-                query=query,
+                query=normalized_query or query,
                 answer=q_val["message"],
                 supported=q_val.get("supported", False),
                 confidence=q_val.get("confidence", 0.0),
@@ -68,13 +71,13 @@ class RAGOrchestrator:
             )
 
         # Stage 2: Routing Strategy
-        strategy = self.router.route_query(query)
+        strategy = self.router.route_query(normalized_query)
 
         # Stage 3 & 4: Adaptive Retrieval — skip expensive dense embedding when hardware is too slow
         if self.encoder.is_fast:
             # Fast hardware: Full hybrid retrieval (Dense + BM25)
             timer.start_step()
-            q_emb = self.encoder.encode(query)
+            q_emb = self.encoder.encode(normalized_query)
             timer.stop_step("embedding_ms")
 
             t_ret_start = time.perf_counter()
@@ -87,7 +90,7 @@ class RAGOrchestrator:
 
             async def run_bm25():
                 b_start = time.perf_counter()
-                res = self.bm25_index.search(query, k=strategy.top_k * 2)
+                res = self.bm25_index.search(normalized_query, k=strategy.top_k * 2)
                 b_ms = (time.perf_counter() - b_start) * 1000
                 return res, b_ms
 
@@ -104,7 +107,7 @@ class RAGOrchestrator:
             timer.metrics.dense_retrieval_ms = 0.0
 
             timer.start_step()
-            bm25_results = self.bm25_index.search(query, k=strategy.top_k * 2)
+            bm25_results = self.bm25_index.search(normalized_query, k=strategy.top_k * 2)
             bm25_ms = timer.stop_step("bm25_ms")
 
             dense_results = []

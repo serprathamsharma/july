@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Loader2, Volume2, AlertCircle, Sparkles } from 'lucide-react';
 
+import { normalizeVoiceQuery } from '../utils/voiceNormalizer';
+
 export type MicState = 'Idle' | 'Listening' | 'Processing' | 'Generating' | 'Complete' | 'Error';
 
 interface MicButtonProps {
@@ -55,14 +57,15 @@ export const MicButton: React.FC<MicButtonProps> = ({
         recognition.lang = 'en-IN';
 
         recognition.onresult = (event: any) => {
-          let currentTranscript = '';
+          let rawTranscript = '';
           for (let i = 0; i < event.results.length; i++) {
-            currentTranscript += event.results[i][0].transcript;
+            rawTranscript += event.results[i][0].transcript;
           }
-          setLiveTranscript(currentTranscript);
-          liveTranscriptRef.current = currentTranscript;
+          const normalized = normalizeVoiceQuery(rawTranscript);
+          setLiveTranscript(normalized);
+          liveTranscriptRef.current = normalized;
           if (onLiveTranscriptChange) {
-            onLiveTranscriptChange(currentTranscript);
+            onLiveTranscriptChange(normalized);
           }
         };
 
