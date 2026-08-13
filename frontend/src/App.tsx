@@ -125,12 +125,14 @@ export const App: React.FC = () => {
           {/* Logo Button */}
           <button onClick={() => scrollToSection('hero')} className="logo-btn" aria-label="Home">
             <svg viewBox="0 0 100 100" className="w-7 h-7">
-              <circle cx="50" cy="50" r="46" fill="#ffffff" />
-              <circle cx="50" cy="50" r="40" fill="none" stroke="#000000" strokeWidth="7" />
-              <circle cx="50" cy="50" r="25" fill="#ffffff" stroke="#000000" strokeWidth="6" />
-              <circle cx="50" cy="50" r="12" fill="#000000" />
-              <line x1="50" y1="10" x2="50" y2="90" stroke="#000000" strokeWidth="6" />
-              <line x1="10" y1="50" x2="90" y2="50" stroke="#000000" strokeWidth="6" />
+              <g fill="#000000">
+                <rect x="28" y="24" width="20" height="8" rx="4" transform="rotate(-20 38 28)" />
+                <rect x="52" y="22" width="20" height="8" rx="4" transform="rotate(-20 62 26)" />
+                <rect x="20" y="42" width="22" height="8" rx="4" transform="rotate(-20 31 46)" />
+                <rect x="58" y="50" width="22" height="8" rx="4" transform="rotate(-20 69 54)" />
+                <rect x="28" y="66" width="20" height="8" rx="4" transform="rotate(-20 38 70)" />
+                <rect x="52" y="64" width="20" height="8" rx="4" transform="rotate(-20 62 68)" />
+              </g>
             </svg>
           </button>
 
