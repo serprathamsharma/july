@@ -126,6 +126,7 @@ export const App: React.FC = () => {
           <button onClick={() => scrollToSection('hero')} className="logo-btn" aria-label="Home">
             <svg viewBox="0 0 100 100" className="w-7 h-7">
               <circle cx="50" cy="50" r="46" fill="#ffffff" />
+              <circle cx="50" cy="50" r="24" fill="none" stroke="#000000" strokeWidth="8" />
             </svg>
           </button>
 
