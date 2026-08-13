@@ -122,15 +122,9 @@ export const App: React.FC = () => {
       {/* 1) STICKY HEADER */}
       <div className="header-wrapper">
         <header className="header">
-          {/* Logo Button (Custom Crosshair Circle Motif) */}
+          {/* Logo Button */}
           <button onClick={() => scrollToSection('hero')} className="logo-btn" aria-label="Home">
-            <svg viewBox="0 0 100 100" className="w-7 h-7 text-slate-950 fill-current">
-              <circle cx="50" cy="50" r="44" fill="none" stroke="currentColor" strokeWidth="7" />
-              <circle cx="50" cy="50" r="26" fill="none" stroke="currentColor" strokeWidth="6" />
-              <circle cx="50" cy="50" r="12" fill="currentColor" />
-              <line x1="50" y1="6" x2="50" y2="94" stroke="currentColor" strokeWidth="6" />
-              <line x1="6" y1="50" x2="94" y2="50" stroke="currentColor" strokeWidth="6" />
-            </svg>
+            <img src="/assets/logo.webp" alt="" width="52" height="52" className="logo-img" />
           </button>
 
           {/* Desktop Nav Pill (white) */}
