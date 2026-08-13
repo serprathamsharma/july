@@ -191,17 +191,24 @@ body {
   opacity: 1;
 }
 
-.nav-link.active::after {
+.nav-link::after {
   content: "";
   position: absolute;
   bottom: 5px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) scale(0);
   width: 3px;
   height: 3px;
   border-radius: 50%;
   background-color: #000000;
   box-shadow: -5px 0 0 #000000, 5px 0 0 #000000;
+  opacity: 0;
+  transition: opacity 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nav-link.active::after {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
 }
 
 /* Sign In Pill */

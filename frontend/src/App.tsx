@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, Activity } from 'lucide-react';
 import { MicButton, type MicState } from './components/MicButton';
 import { AnalyticsView } from './components/AnalyticsView';
@@ -8,6 +8,7 @@ export const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<'hero' | 'voice-rag' | 'analytics'>('hero');
   const [micState, setMicState] = useState<MicState>('Idle');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isManualScrollingRef = useRef(false);
 
   // Animated Stats Counter State
   const [stats, setStats] = useState({
@@ -56,6 +57,8 @@ export const App: React.FC = () => {
   // Dynamic scroll listener to update activeSection on scroll
   useEffect(() => {
     const handleScroll = () => {
+      if (isManualScrollingRef.current) return;
+
       const voiceRagEl = document.getElementById('voice-rag');
       const analyticsEl = document.getElementById('analytics');
 
@@ -82,12 +85,16 @@ export const App: React.FC = () => {
   }, []);
 
   const scrollToSection = (sectionId: 'hero' | 'voice-rag' | 'analytics') => {
+    isManualScrollingRef.current = true;
     setActiveSection(sectionId);
     setMobileMenuOpen(false);
     const element = document.getElementById(sectionId);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+    setTimeout(() => {
+      isManualScrollingRef.current = false;
+    }, 850);
   };
 
   const handleAudioRecorded = async (audioBlob: Blob, liveTranscript?: string) => {
