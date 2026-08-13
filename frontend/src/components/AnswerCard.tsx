@@ -11,7 +11,7 @@ interface AnswerCardProps {
   autoSpeak?: boolean;
 }
 
-export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, onModeToggle, autoSpeak = true }) => {
+export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, onModeToggle, autoSpeak = false }) => {
   const [selectedChunk, setSelectedChunk] = useState<RetrievedChunkPayload | null>(null);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
 

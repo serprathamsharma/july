@@ -254,6 +254,7 @@ export const App: React.FC = () => {
             <AnswerCard
               response={ragResponse}
               selectedMode={selectedMode}
+              autoSpeak={false}
               onModeToggle={async (newMode) => {
                 setSelectedMode(newMode);
                 if (ragResponse.query) {
