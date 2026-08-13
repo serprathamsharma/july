@@ -53,30 +53,32 @@ export const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // IntersectionObserver to dynamically update activeSection on scroll
+  // Dynamic scroll listener to update activeSection on scroll
   useEffect(() => {
-    const sectionIds: Array<'hero' | 'voice-rag' | 'analytics'> = ['hero', 'voice-rag', 'analytics'];
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setActiveSection(entry.target.id as 'hero' | 'voice-rag' | 'analytics');
-          }
-        });
-      },
-      {
-        root: null,
-        rootMargin: '-30% 0px -40% 0px',
-        threshold: 0.2,
+    const handleScroll = () => {
+      const voiceRagEl = document.getElementById('voice-rag');
+      const analyticsEl = document.getElementById('analytics');
+
+      // 1) Bottom of page fallback for Analytics
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 120) {
+        setActiveSection('analytics');
+        return;
       }
-    );
 
-    sectionIds.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    });
+      const viewportMid = window.scrollY + window.innerHeight * 0.4;
 
-    return () => observer.disconnect();
+      if (analyticsEl && viewportMid >= analyticsEl.offsetTop) {
+        setActiveSection('analytics');
+      } else if (voiceRagEl && viewportMid >= voiceRagEl.offsetTop) {
+        setActiveSection('voice-rag');
+      } else {
+        setActiveSection('hero');
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const scrollToSection = (sectionId: 'hero' | 'voice-rag' | 'analytics') => {
