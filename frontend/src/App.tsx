@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Send, HelpCircle } from 'lucide-react';
+import { Send, HelpCircle, ArrowLeft, Sparkles, Activity } from 'lucide-react';
 import { MicButton, type MicState } from './components/MicButton';
 import { AnswerCard } from './components/AnswerCard';
 import { AnalyticsView } from './components/AnalyticsView';
 import { type RAGPipelineResponse, processTextQuery, processVoiceQuery } from './services/api';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'rag' | 'analytics'>('rag');
+  const [activeView, setActiveView] = useState<'landing' | 'rag' | 'analytics'>('landing');
   const [micState, setMicState] = useState<MicState>('Idle');
   const [textInput, setTextInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -113,26 +113,30 @@ export const App: React.FC = () => {
       {/* 1) HEADER (Desktop & Mobile) */}
       <header className="header">
         {/* Logo Button */}
-        <a href="#" className="logo-btn" aria-label="Home">
+        <button onClick={() => setActiveView('landing')} className="logo-btn" aria-label="Home">
           <img src="/assets/logo.webp" alt="" width="52" height="52" className="logo-img" />
-        </a>
+        </button>
 
         {/* Desktop Nav Pill (white) */}
         <nav className="nav-pill" aria-label="Main Navigation">
           <button
-            onClick={() => setActiveTab('rag')}
-            className={`nav-link ${activeTab === 'rag' ? 'active' : ''}`}
+            onClick={() => setActiveView('landing')}
+            className={`nav-link ${activeView === 'landing' ? 'active' : ''}`}
+          >
+            Home
+          </button>
+          <button
+            onClick={() => setActiveView('rag')}
+            className={`nav-link ${activeView === 'rag' ? 'active' : ''}`}
           >
             Voice RAG
           </button>
           <button
-            onClick={() => setActiveTab('analytics')}
-            className={`nav-link ${activeTab === 'analytics' ? 'active' : ''}`}
+            onClick={() => setActiveView('analytics')}
+            className={`nav-link ${activeView === 'analytics' ? 'active' : ''}`}
           >
             Analytics
           </button>
-          <a href="#product" className="nav-link">Product</a>
-          <a href="#case-studies" className="nav-link">Case Studies</a>
           <a href="#contact" className="nav-link">Contact</a>
         </nav>
 
@@ -152,9 +156,9 @@ export const App: React.FC = () => {
         </button>
       </header>
 
-      {/* 2) HERO SECTION */}
+      {/* 2) HERO / MAIN VIEW AREA */}
       <main className="hero">
-        {activeTab === 'rag' ? (
+        {activeView === 'landing' && (
           <div className="w-full flex flex-col items-center">
             {/* Trust Row */}
             <div className="trust-row anim" style={{ '--d': '0.05s' } as React.CSSProperties}>
@@ -191,7 +195,37 @@ export const App: React.FC = () => {
               Build applications that reason, adapt and collaborate using a modular AI platform designed for production.
             </p>
 
-            {/* Central Interactive Mic Button with Real-time STT */}
+            {/* Glowing CTA Button -> Opens Voice RAG */}
+            <div className="cta-wrapper anim-pulse" style={{ '--d': '0.4s' } as React.CSSProperties}>
+              <button
+                onClick={() => setActiveView('rag')}
+                className="cta-btn cursor-pointer"
+              >
+                Get Started
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeView === 'rag' && (
+          <div className="w-full max-w-2xl flex flex-col items-center animate-fadeIn py-2">
+            {/* Back Button & View Header */}
+            <div className="w-full flex items-center justify-between mb-4">
+              <button
+                onClick={() => setActiveView('landing')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-xs text-slate-300 border border-slate-700/60 transition-all cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Overview</span>
+              </button>
+
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-mono">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Voice RAG Active</span>
+              </div>
+            </div>
+
+            {/* Real-time Voice Recording Component */}
             <MicButton
               state={micState}
               onAudioRecorded={handleAudioRecorded}
@@ -205,19 +239,19 @@ export const App: React.FC = () => {
                 e.preventDefault();
                 handleTextSubmit(textInput);
               }}
-              className="w-full max-w-xl my-4 flex items-center gap-2 glass-panel p-2 rounded-2xl border border-slate-700/60 shadow-xl"
+              className="w-full my-3 flex items-center gap-2 glass-panel p-2 rounded-2xl border border-slate-700/60 shadow-xl"
             >
               <input
                 type="text"
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
-                placeholder="Ask anything or tap the mic to speak in real time..."
+                placeholder="Ask anything or speak in real time..."
                 className="flex-1 bg-transparent px-4 py-2 text-sm text-slate-100 placeholder-slate-400 focus:outline-none"
               />
               <button
                 type="submit"
                 disabled={!textInput.trim() || loading}
-                className="p-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-all shadow-md"
+                className="p-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-xl transition-all shadow-md cursor-pointer"
                 aria-label="Send query"
               >
                 <Send className="w-4 h-4" />
@@ -225,10 +259,10 @@ export const App: React.FC = () => {
             </form>
 
             {/* Sample Query Suggestions */}
-            <div className="w-full max-w-xl mb-4">
+            <div className="w-full mb-3">
               <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400 mb-2">
                 <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Try sample test queries:</span>
+                <span>Try sample queries:</span>
               </div>
               <div className="flex flex-wrap justify-center gap-1.5">
                 {sampleQueries.map((q, idx) => (
@@ -238,7 +272,7 @@ export const App: React.FC = () => {
                       setTextInput(q);
                       handleTextSubmit(q);
                     }}
-                    className="px-2.5 py-1 bg-slate-900/80 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-200 border border-slate-800 hover:border-indigo-500/40 rounded-xl text-xs transition-all text-left"
+                    className="px-2.5 py-1 bg-slate-900/80 hover:bg-indigo-600/30 text-slate-300 hover:text-indigo-200 border border-slate-800 hover:border-indigo-500/40 rounded-xl text-xs transition-all text-left cursor-pointer"
                   >
                     "{q}"
                   </button>
@@ -255,8 +289,25 @@ export const App: React.FC = () => {
               />
             )}
           </div>
-        ) : (
-          <div className="w-full max-w-4xl py-4 overflow-y-auto">
+        )}
+
+        {activeView === 'analytics' && (
+          <div className="w-full max-w-4xl py-2 overflow-y-auto">
+            <div className="w-full flex items-center justify-between mb-4">
+              <button
+                onClick={() => setActiveView('landing')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/80 hover:bg-slate-800 text-xs text-slate-300 border border-slate-700/60 transition-all cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Overview</span>
+              </button>
+
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-mono">
+                <Activity className="w-3.5 h-3.5" />
+                <span>System Analytics</span>
+              </div>
+            </div>
+
             <AnalyticsView />
           </div>
         )}
@@ -300,24 +351,31 @@ export const App: React.FC = () => {
             <nav className="mobile-nav">
               <button
                 onClick={() => {
-                  setActiveTab('rag');
+                  setActiveView('landing');
                   setMobileMenuOpen(false);
                 }}
-                className={`mobile-nav-link ${activeTab === 'rag' ? 'active' : ''}`}
+                className={`mobile-nav-link ${activeView === 'landing' ? 'active' : ''}`}
+              >
+                Home
+              </button>
+              <button
+                onClick={() => {
+                  setActiveView('rag');
+                  setMobileMenuOpen(false);
+                }}
+                className={`mobile-nav-link ${activeView === 'rag' ? 'active' : ''}`}
               >
                 Voice RAG
               </button>
               <button
                 onClick={() => {
-                  setActiveTab('analytics');
+                  setActiveView('analytics');
                   setMobileMenuOpen(false);
                 }}
-                className={`mobile-nav-link ${activeTab === 'analytics' ? 'active' : ''}`}
+                className={`mobile-nav-link ${activeView === 'analytics' ? 'active' : ''}`}
               >
                 Analytics
               </button>
-              <a href="#product" onClick={() => setMobileMenuOpen(false)} className="mobile-nav-link">Product</a>
-              <a href="#case-studies" onClick={() => setMobileMenuOpen(false)} className="mobile-nav-link">Case Studies</a>
               <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="mobile-nav-link">Contact</a>
             </nav>
             <a href="#signin" onClick={() => setMobileMenuOpen(false)} className="mobile-signin-btn">Sign in</a>
