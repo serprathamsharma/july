@@ -25,19 +25,23 @@
   --font-display: "BubbledotICG-FinePos", "Geist Pixel Circle", monospace;
 }
 
-/* Base Reset & Viewport Constraints */
+/* Base Reset & Smooth Scrolling */
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
-html, body {
+html {
+  scroll-behavior: smooth;
+  background-color: var(--bg);
+}
+
+body {
   width: 100%;
-  height: 100vh;
-  height: 100dvh;
+  min-height: 100vh;
   background-color: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  overflow: hidden;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -45,7 +49,10 @@ html, body {
 /* Background Video Container */
 .bg {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
   background-color: var(--bg);
   overflow: hidden;
   z-index: 0;
@@ -85,22 +92,28 @@ html, body {
   box-shadow: 0 0 50px rgba(99, 102, 241, 0.75);
 }
 
-/* Single Viewport Layout Structure */
+/* Overall Scrollable Page Container */
 .page-container {
   position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
-  height: 100vh;
-  height: 100dvh;
-  padding: clamp(14px, 2vh, 24px) clamp(14px, 3vw, 32px);
-  overflow: hidden;
+  min-height: 100vh;
 }
 
-/* 1) HEADER (Desktop) */
+/* 1) HEADER (Sticky Desktop & Mobile) */
+.header-wrapper {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: clamp(12px, 2vh, 20px) clamp(14px, 3vw, 32px);
+}
+
 .header {
   width: 100%;
   max-width: 720px;
@@ -124,6 +137,8 @@ html, body {
   place-items: center;
   text-decoration: none;
   flex-shrink: 0;
+  border: none;
+  cursor: pointer;
   transition: transform 0.25s ease;
 }
 
@@ -219,8 +234,20 @@ html, body {
   display: none;
 }
 
-/* 2) HERO (Center) */
-.hero {
+/* 2) HERO SECTION (Section 1) */
+.hero-section {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: calc(100vh - 90px);
+  padding: clamp(14px, 2vh, 24px) clamp(14px, 3vw, 32px);
+}
+
+.hero-body {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -229,87 +256,19 @@ html, body {
   text-align: center;
   width: 100%;
   max-width: 900px;
-  z-index: 1;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-
-.hero::-webkit-scrollbar {
-  display: none;
-}
-
-/* Trust Row */
-.trust-row {
-  --trust-size: clamp(34px, 4.2vw, 40px);
-  display: inline-flex;
-  align-items: center;
-  margin-bottom: clamp(10px, 1.8vh, 18px);
-}
-
-.avatars {
-  display: flex;
-  align-items: center;
-}
-
-.avatar-ring {
-  width: var(--trust-size);
-  height: var(--trust-size);
-  border-radius: 50%;
-  background-color: var(--trust-bg);
-  border: 1px solid var(--trust-border);
-  padding: 5px;
-  position: relative;
-  transition: transform 0.35s ease;
-}
-
-.ring-1 { z-index: 1; }
-.ring-2 { z-index: 2; margin-left: calc(var(--trust-size) * -0.42); }
-.ring-3 { z-index: 4; margin-left: calc(var(--trust-size) * -0.42); }
-
-.ring-1:hover { transform: translateY(-2px); }
-.ring-2:hover { transform: translateY(-4px); }
-.ring-3:hover { transform: translateY(-2px); }
-
-.avatar-inner {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background-color: #ffffff;
-  display: grid;
-  place-items: center;
-  color: #111111;
-  font-size: calc(var(--trust-size) * 0.34);
-}
-
-.trust-pill {
-  height: var(--trust-size);
-  background-color: var(--trust-bg);
-  border: 1px solid var(--trust-border);
-  border-radius: 999px;
-  margin-left: calc(var(--trust-size) * -0.42);
-  padding-left: calc(var(--trust-size) * 0.58);
-  padding-right: calc(var(--trust-size) * 0.45);
-  display: flex;
-  align-items: center;
-  color: var(--trust-text);
-  font-family: var(--font-sans);
-  font-weight: 500;
-  font-size: clamp(12px, 1.4vw, 13.5px);
-  z-index: 0;
-  white-space: nowrap;
 }
 
 /* Headline */
 .headline {
   font-family: var(--font-display);
   color: #ffffff;
-  font-size: clamp(26px, 5.5vw, 68px);
+  font-size: clamp(28px, 6vw, 76px);
   letter-spacing: -0.04em;
   line-height: 1.1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: clamp(8px, 1.4vh, 16px);
+  margin-bottom: clamp(12px, 2vh, 20px);
 }
 
 .headline-line {
@@ -337,8 +296,8 @@ html, body {
   font-size: clamp(calc(13.5px + 2pt), calc(1.4vw + 2pt), calc(15.5px + 2pt));
   color: #d0d0d0;
   opacity: 0.8;
-  line-height: 1.45;
-  margin-bottom: clamp(12px, 2vh, 22px);
+  line-height: 1.55;
+  margin-bottom: clamp(18px, 2.8vh, 32px);
 }
 
 /* CTA */
@@ -355,11 +314,13 @@ html, body {
   font-family: var(--font-sans);
   font-weight: 600;
   font-size: clamp(13.5px, 1.5vw, 14.5px);
-  padding: clamp(10px, 1.4vh, 12px) clamp(22px, 3vw, 28px);
+  padding: clamp(11px, 1.6vh, 13px) clamp(24px, 3vw, 30px);
   border-radius: 999px;
   text-decoration: none;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15), 0 0 22px rgba(255, 255, 255, 0.32), 0 0 44px rgba(255, 255, 255, 0.12);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
+  border: none;
+  cursor: pointer;
 }
 
 .cta-btn:hover {
@@ -376,6 +337,7 @@ html, body {
   gap: clamp(12px, 2vw, 24px);
   flex-shrink: 0;
   z-index: 1;
+  margin-top: clamp(20px, 4vh, 40px);
 }
 
 .stat-card {
@@ -409,6 +371,20 @@ html, body {
   color: var(--muted);
   font-size: clamp(11px, 1.1vw, 12px);
   margin-top: 2px;
+}
+
+/* 4) VOICE RAG & ANALYTICS SECTIONS (Section 2 & 3) */
+.content-section {
+  width: 100%;
+  max-width: 900px;
+  min-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  position: relative;
+  z-index: 2;
 }
 
 /* ENTRANCE ANIMATIONS */
@@ -622,30 +598,9 @@ html, body {
 }
 
 @media (max-width: 420px) {
-  .trust-row {
-    --trust-size: 34px;
-  }
-
-  .trust-pill {
-    font-size: 12px;
-  }
-
   .headline {
     letter-spacing: -0.09em;
     line-height: 1.04;
-  }
-}
-
-@media (max-height: 700px) {
-  .page-container {
-    padding-top: 12px;
-    padding-bottom: 12px;
-  }
-  .subhead {
-    margin-bottom: 14px;
-  }
-  .trust-row {
-    margin-bottom: 10px;
   }
 }
 
