@@ -1,16 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Loader2, Volume2, AlertCircle } from 'lucide-react';
+import { Mic, Square, Loader2, Volume2, AlertCircle, Sparkles } from 'lucide-react';
 
 export type MicState = 'Idle' | 'Listening' | 'Processing' | 'Generating' | 'Complete' | 'Error';
 
 interface MicButtonProps {
   state: MicState;
-  onAudioRecorded: (blob: Blob) => void;
+  onAudioRecorded: (blob: Blob, liveTranscript?: string) => void;
   onStateChange: (newState: MicState) => void;
+  onLiveTranscriptChange?: (text: string) => void;
 }
 
-export const MicButton: React.FC<MicButtonProps> = ({ state, onAudioRecorded, onStateChange }) => {
+export const MicButton: React.FC<MicButtonProps> = ({
+  state,
+  onAudioRecorded,
+  onStateChange,
+  onLiveTranscriptChange
+}) => {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState<string>('');
+  const recognitionRef = useRef<any>(null);
   const audioChunks = useRef<Blob[]>([]);
   const [audioLevels, setAudioLevels] = useState<number[]>([15, 30, 45, 20, 35]);
 
@@ -33,6 +41,37 @@ export const MicButton: React.FC<MicButtonProps> = ({ state, onAudioRecorded, on
 
   const startRecording = async () => {
     try {
+      setLiveTranscript('');
+      if (onLiveTranscriptChange) onLiveTranscriptChange('');
+
+      // Initialize Web Speech API for real-time speech recognition
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-IN';
+
+        recognition.onresult = (event: any) => {
+          let currentTranscript = '';
+          for (let i = 0; i < event.results.length; i++) {
+            currentTranscript += event.results[i][0].transcript;
+          }
+          setLiveTranscript(currentTranscript);
+          if (onLiveTranscriptChange) {
+            onLiveTranscriptChange(currentTranscript);
+          }
+        };
+
+        recognition.onerror = (err: any) => {
+          console.warn('Speech recognition warning:', err);
+        };
+
+        recognition.start();
+        recognitionRef.current = recognition;
+      }
+
+      // Initialize MediaRecorder for audio blob capture
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
       audioChunks.current = [];
@@ -45,7 +84,8 @@ export const MicButton: React.FC<MicButtonProps> = ({ state, onAudioRecorded, on
 
       recorder.onstop = () => {
         const audioBlob = new Blob(audioChunks.current, { type: 'audio/wav' });
-        onAudioRecorded(audioBlob);
+        const finalTranscript = liveTranscript.trim();
+        onAudioRecorded(audioBlob, finalTranscript);
         stream.getTracks().forEach((track) => track.stop());
       };
 
@@ -59,6 +99,14 @@ export const MicButton: React.FC<MicButtonProps> = ({ state, onAudioRecorded, on
   };
 
   const stopRecording = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       mediaRecorder.stop();
       onStateChange('Processing');
@@ -79,7 +127,7 @@ export const MicButton: React.FC<MicButtonProps> = ({ state, onAudioRecorded, on
         return 'bg-rose-600 hover:bg-rose-500 shadow-[0_0_40px_rgba(225,29,72,0.7)] animate-pulse';
       case 'Processing':
       case 'Generating':
-        return 'bg-indigo-600/80 cursor_wait shadow-[0_0_30px_rgba(99,102,241,0.5)]';
+        return 'bg-indigo-600/80 cursor-wait shadow-[0_0_30px_rgba(99,102,241,0.5)]';
       case 'Error':
         return 'bg-amber-600 hover:bg-amber-500 shadow-[0_0_30px_rgba(217,119,6,0.6)]';
       default:
@@ -88,7 +136,7 @@ export const MicButton: React.FC<MicButtonProps> = ({ state, onAudioRecorded, on
   };
 
   return (
-    <div className="flex flex-col items-center justify-center py-6">
+    <div className="flex flex-col items-center justify-center py-6 w-full max-w-lg">
       {/* Central Interactive Mic Button */}
       <button
         onClick={handleClick}
@@ -122,10 +170,23 @@ export const MicButton: React.FC<MicButtonProps> = ({ state, onAudioRecorded, on
         </div>
       )}
 
+      {/* Real-time Speech Transcript Display Box */}
+      {state === 'Listening' && (
+        <div className="w-full mt-4 p-4 rounded-2xl glass-panel border border-rose-500/30 text-center animate-fadeIn shadow-lg shadow-rose-950/20">
+          <div className="flex items-center justify-center gap-2 text-xs font-semibold text-rose-400 uppercase tracking-wider mb-2">
+            <Sparkles className="w-3.5 h-3.5 animate-spin" />
+            <span>Listening in Real Time</span>
+          </div>
+          <p className="text-sm font-medium text-slate-100 min-h-[1.5rem] leading-relaxed">
+            {liveTranscript ? `"${liveTranscript}"` : <span className="text-slate-500 italic">Start speaking your question...</span>}
+          </p>
+        </div>
+      )}
+
       {/* Status Label */}
       <div className="mt-4 text-center">
         <span className="text-sm font-medium tracking-wide uppercase text-slate-400">
-          {state === 'Listening' && 'Tap to stop recording'}
+          {state === 'Listening' && 'Tap the red button to finish speaking'}
           {state === 'Processing' && 'STT Transcription in progress...'}
           {state === 'Generating' && 'Grounded RAG Retrieval & LLM Generation...'}
           {state === 'Idle' && 'Tap to ask anything via voice'}

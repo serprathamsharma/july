@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Sparkles, BookOpen, ShieldCheck, AlertTriangle, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, BookOpen, ShieldCheck, AlertTriangle, ExternalLink, Volume2, VolumeX } from 'lucide-react';
 import type { RAGPipelineResponse, RetrievedChunkPayload } from '../services/api';
 import { LatencyBadge } from './LatencyBadge';
 import { SourceExplorer } from './SourceExplorer';
@@ -8,12 +8,47 @@ interface AnswerCardProps {
   response: RAGPipelineResponse;
   selectedMode: 'RAG' | 'End-to-End';
   onModeToggle: (mode: 'RAG' | 'End-to-End') => void;
+  autoSpeak?: boolean;
 }
 
-export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, onModeToggle }) => {
+export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, onModeToggle, autoSpeak = true }) => {
   const [selectedChunk, setSelectedChunk] = useState<RetrievedChunkPayload | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
 
   const isAbstention = !response.supported || response.answer.includes("couldn't find enough");
+
+  const speakAnswer = () => {
+    if (!('speechSynthesis' in window)) return;
+
+    window.speechSynthesis.cancel(); // Cancel any ongoing speech
+    if (isSpeaking) {
+      setIsSpeaking(false);
+      return;
+    }
+
+    const textToSpeak = response.answer.replace(/\[.*?\]/g, '').trim();
+    if (!textToSpeak) return;
+
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  useEffect(() => {
+    if (autoSpeak && response.answer) {
+      // Small timeout to allow UI to render first
+      const timer = setTimeout(() => {
+        speakAnswer();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [response.request_id]);
 
   return (
     <div className="w-full max-w-3xl glass-panel rounded-2xl p-6 sm:p-8 shadow-2xl border border-slate-800 animate-fadeIn my-6">
@@ -24,9 +59,23 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold tracking-wide text-slate-300 uppercase">Grounded Response</h2>
+            <h2 className="text-sm font-semibold tracking-wide text-slate-300 uppercase flex items-center gap-2">
+              <span>Grounded Response</span>
+              <button
+                onClick={speakAnswer}
+                className={`p-1.5 rounded-lg border text-xs font-normal flex items-center gap-1.5 transition-all ${
+                  isSpeaking
+                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                    : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                }`}
+                title={isSpeaking ? "Stop speech readout" : "Read answer aloud"}
+              >
+                {isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                <span>{isSpeaking ? "Speaking..." : "Read Aloud"}</span>
+              </button>
+            </h2>
             {response.transcription && (
-              <p className="text-xs text-slate-400 italic">"{response.transcription}"</p>
+              <p className="text-xs text-slate-400 italic mt-0.5">"{response.transcription}"</p>
             )}
           </div>
         </div>

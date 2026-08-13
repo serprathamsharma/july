@@ -38,12 +38,21 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleAudioRecorded = async (audioBlob: Blob) => {
+  const handleAudioRecorded = async (audioBlob: Blob, liveTranscript?: string) => {
     setLoading(true);
     setMicState('Generating');
 
     try {
-      const res = await processVoiceQuery(audioBlob, 'en-IN');
+      const queryToSubmit = liveTranscript?.trim() || textInput.trim();
+      let res: RAGPipelineResponse;
+
+      if (queryToSubmit) {
+        res = await processTextQuery(queryToSubmit, 'End-to-End');
+        res.transcription = queryToSubmit;
+      } else {
+        res = await processVoiceQuery(audioBlob, 'en-IN');
+      }
+
       setResponse(res);
       setMicState('Complete');
     } catch (err) {
@@ -109,12 +118,12 @@ export const App: React.FC = () => {
         {activeTab === 'rag' ? (
           <div className="w-full max-w-3xl flex flex-col items-center animate-fadeIn">
             {/* Title Section */}
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-mono mb-4">
+            <div className="text-center mb-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-mono mb-3">
                 <Database className="w-3.5 h-3.5" />
                 <span>Indexed Dataset: MSMARCO-XI (VAST Chunking)</span>
               </div>
-              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-3">
+              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-2">
                 Voice-Enabled Grounded RAG
               </h2>
               <p className="text-slate-400 text-sm max-w-md mx-auto">
@@ -122,14 +131,15 @@ export const App: React.FC = () => {
               </p>
             </div>
 
-            {/* Central Mic Interactive Button */}
+            {/* Central Mic Interactive Button with Real-time Speech Transcript */}
             <MicButton
               state={micState}
               onAudioRecorded={handleAudioRecorded}
               onStateChange={setMicState}
+              onLiveTranscriptChange={(liveText) => setTextInput(liveText)}
             />
 
-            {/* Fallback Text Input Bar */}
+            {/* Text Input Bar */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -141,7 +151,7 @@ export const App: React.FC = () => {
                 type="text"
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
-                placeholder="Ask anything from the MSMARCO-XI knowledge base..."
+                placeholder="Ask anything or tap the mic to speak in real time..."
                 className="flex-1 bg-transparent px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none"
               />
               <button
