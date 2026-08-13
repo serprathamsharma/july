@@ -20,8 +20,8 @@ frontend/.nx/
 *.env
 
 # Large Binary Index & Raw Data Artifacts
-data/indexes/*.index
-data/indexes/*.pkl
+# Note: indexes are committed for Railway cloud deployment
+!data/indexes/
 data/raw/
 
 # System & IDE Files

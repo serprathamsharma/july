@@ -1,0 +1,26 @@
+FROM python:3.11-slim
+
+# Install system dependencies for FAISS and build tools
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libopenblas-dev \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the full project
+COPY . .
+
+# Create data directory for indexes
+RUN mkdir -p data/indexes
+
+# Expose port (Railway sets $PORT automatically)
+EXPOSE 8000
+
+# Start the server — Railway injects $PORT at runtime
+CMD ["sh", "-c", "uvicorn backend.app:app --host 0.0.0.0 --port ${PORT:-8000}"]
