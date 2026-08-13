@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Send, HelpCircle, Sparkles, Activity } from 'lucide-react';
 import { MicButton, type MicState } from './components/MicButton';
-import { AnswerCard } from './components/AnswerCard';
 import { AnalyticsView } from './components/AnalyticsView';
-import { type RAGPipelineResponse, processTextQuery, processVoiceQuery } from './services/api';
+import { processTextQuery, processVoiceQuery } from './services/api';
 
 export const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<'hero' | 'voice-rag' | 'analytics'>('hero');
   const [micState, setMicState] = useState<MicState>('Idle');
   const [textInput, setTextInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [response, setResponse] = useState<RAGPipelineResponse | null>(null);
-  const [selectedMode, setSelectedMode] = useState<'RAG' | 'End-to-End'>('RAG');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Animated Stats Counter State
@@ -81,8 +78,7 @@ export const App: React.FC = () => {
     setMicState('Generating');
 
     try {
-      const res = await processTextQuery(queryText.trim(), selectedMode);
-      setResponse(res);
+      await processTextQuery(queryText.trim(), 'RAG');
       setMicState('Complete');
     } catch (err) {
       console.error(err);
@@ -98,16 +94,13 @@ export const App: React.FC = () => {
 
     try {
       const queryToSubmit = liveTranscript?.trim() || textInput.trim();
-      let res: RAGPipelineResponse;
 
       if (queryToSubmit) {
-        res = await processTextQuery(queryToSubmit, 'End-to-End');
-        res.transcription = queryToSubmit;
+        await processTextQuery(queryToSubmit, 'End-to-End');
       } else {
-        res = await processVoiceQuery(audioBlob, 'en-IN');
+        await processVoiceQuery(audioBlob, 'en-IN');
       }
 
-      setResponse(res);
       setMicState('Complete');
     } catch (err) {
       console.error(err);
@@ -290,14 +283,7 @@ export const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Grounded Answer Card */}
-          {response && (
-            <AnswerCard
-              response={response}
-              selectedMode={selectedMode}
-              onModeToggle={setSelectedMode}
-            />
-          )}
+          {/* Grounded Answer Card Removed */}
         </div>
       </section>
 
