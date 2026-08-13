@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Sparkles, BookOpen, ShieldCheck, AlertTriangle, ExternalLink } from 'lucide-react';
-import { RAGPipelineResponse, RetrievedChunkPayload } from '../services/api';
+import type { RAGPipelineResponse, RetrievedChunkPayload } from '../services/api';
 import { LatencyBadge } from './LatencyBadge';
 import { SourceExplorer } from './SourceExplorer';
 

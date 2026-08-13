@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Mic, Send, Activity, Sparkles, Database, HelpCircle } from 'lucide-react';
-import { MicButton, MicState } from './components/MicButton';
+import { MicButton, type MicState } from './components/MicButton';
 import { AnswerCard } from './components/AnswerCard';
 import { AnalyticsView } from './components/AnalyticsView';
-import { RAGPipelineResponse, processTextQuery, processVoiceQuery } from './services/api';
+import { type RAGPipelineResponse, processTextQuery, processVoiceQuery } from './services/api';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'rag' | 'analytics'>('rag');

@@ -29,3 +29,5 @@ data/raw/
 Thumbs.db
 .vscode/
 .idea/
+
+.vercel

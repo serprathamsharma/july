@@ -1,11 +1,12 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  body {
-    @apply bg-[#0a0c10] text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white min-h-screen overflow-x-hidden;
-  }
+body {
+  background-color: #0a0c10;
+  color: #f1f5f9;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* Glassmorphism components */

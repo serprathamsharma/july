@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { X, FileText, Database, Layers, CheckCircle2, ArrowRight } from 'lucide-react';
-import { RetrievedChunkPayload, fetchSourceDetail } from '../services/api';
+import { X, FileText, Layers } from 'lucide-react';
+import { type RetrievedChunkPayload, fetchSourceDetail } from '../services/api';
 
 interface SourceExplorerProps {
   chunk: RetrievedChunkPayload | null;
@@ -9,19 +9,16 @@ interface SourceExplorerProps {
 
 export const SourceExplorer: React.FC<SourceExplorerProps> = ({ chunk, onClose }) => {
   const [detail, setDetail] = useState<RetrievedChunkPayload | null>(chunk);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (chunk) {
       setDetail(chunk);
       // Fetch fresh backend details
-      setLoading(true);
       fetchSourceDetail(chunk.chunk_id)
         .then((res) => {
           setDetail((prev) => ({ ...prev, ...res }));
         })
-        .catch((err) => console.error(err))
-        .finally(() => setLoading(false));
+        .catch((err) => console.error(err));
     }
   }, [chunk]);
 

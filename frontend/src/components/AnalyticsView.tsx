@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, Zap, ShieldAlert, Database, Play, BarChart3, RefreshCw } from 'lucide-react';
-import { AnalyticsSummary, fetchAnalytics, runBenchmark } from '../services/api';
+import { type AnalyticsSummary, fetchAnalytics, runBenchmark } from '../services/api';
 
 export const AnalyticsView: React.FC = () => {
   const [data, setData] = useState<AnalyticsSummary | null>(null);

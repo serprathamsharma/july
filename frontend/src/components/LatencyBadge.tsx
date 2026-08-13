@@ -1,6 +1,6 @@
 import React from 'react';
-import { Zap, Clock } from 'lucide-react';
-import { LatencyMetrics } from '../services/api';
+import { Zap } from 'lucide-react';
+import type { LatencyMetrics } from '../services/api';
 
 interface LatencyBadgeProps {
   metrics: LatencyMetrics;
