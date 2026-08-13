@@ -88,9 +88,13 @@ export const App: React.FC = () => {
     isManualScrollingRef.current = true;
     setActiveSection(sectionId);
     setMobileMenuOpen(false);
-    const element = document.getElementById(sectionId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (sectionId === 'hero') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
     setTimeout(() => {
       isManualScrollingRef.current = false;
