@@ -1,0 +1,31 @@
+# Python / Virtual Environment
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.nx/
+.npm/
+
+# Environment Variables & Secrets
+.env
+.env.local
+*.env
+
+# Large Binary Index & Raw Data Artifacts
+data/indexes/*.index
+data/indexes/*.pkl
+data/raw/
+
+# System & IDE Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
