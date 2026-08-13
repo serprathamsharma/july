@@ -19,6 +19,10 @@ COPY . .
 # Create data directory for indexes
 RUN mkdir -p data/indexes
 
+# Pre-download the embedding model at BUILD TIME so startup is instant
+# This avoids a ~2 minute HuggingFace download on every cold start
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
+
 # Expose port (Railway sets $PORT automatically)
 EXPOSE 8000
 
