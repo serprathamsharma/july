@@ -13,17 +13,31 @@ class QueryGuardrail:
     def normalize_query(self, query: str) -> str:
         """
         Collapses spelled-out letters (e.g. 'm s m a r c o' -> 'MSMARCO'),
-        normalizes domain acronyms, Roman numerals, and voice transcription artifacts.
+        strips conversational preamble/fillers, and normalizes domain acronyms.
         """
         if not query:
             return ""
         
         normalized = query.strip()
-        # 1. Collapse spelled-out sequences: 'm s m a r c o' -> 'msmarco', 'f a i s s' -> 'faiss'
+
+        # 1. Strip conversational preamble / filler phrases
+        preambles = [
+            r'^(can\s+you\s+(please\s+)?(tell\s+me|explain|give\s+me|clarify)\s+(about\s+)?)\b',
+            r'^(could\s+you\s+(please\s+)?(tell\s+me|explain|clarify)\s+(about\s+)?)\b',
+            r'^(i\s+(would\s+like|want)\s+to\s+(know|learn|understand)\s+(about\s+)?)\b',
+            r'^(do\s+you\s+know\s+(about\s+)?)\b',
+            r'^(please\s+(tell\s+me|explain|give\s+me)\s+(about\s+)?)\b',
+            r'^(what\s+do\s+you\s+know\s+about\s+)\b',
+            r'^(tell\s+me\s+about\s+)\b',
+        ]
+        for p in preambles:
+            normalized = re.sub(p, '', normalized, flags=re.IGNORECASE).strip()
+
+        # 2. Collapse spelled-out sequences: 'm s m a r c o' -> 'msmarco', 'f a i s s' -> 'faiss'
         normalized = re.sub(r'\b([a-zA-Z]\s+){2,}[a-zA-Z]\b', lambda m: re.sub(r'\s+', '', m.group(0)), normalized)
-        # 2. Handle dot-separated letters: 'm.s.m.a.r.c.o' -> 'msmarco'
+        # 3. Handle dot-separated letters: 'm.s.m.a.r.c.o' -> 'msmarco'
         normalized = re.sub(r'\b([a-zA-Z]\.\s*){2,}[a-zA-Z]\.?', lambda m: re.sub(r'[\.\s]+', '', m.group(0)), normalized)
-        # 3. Domain-specific acronym replacements
+        # 4. Domain-specific acronym and speech replacements
         normalized = re.sub(r'\bm\s*s\s*marco\b', 'MSMARCO', normalized, flags=re.IGNORECASE)
         normalized = re.sub(r'\bmsmarco\s*(11|eleven|xi)\b', 'MSMARCO-XI', normalized, flags=re.IGNORECASE)
         normalized = re.sub(r'\bmsmarco\s*(1|one|i)\b', 'MSMARCO-XI', normalized, flags=re.IGNORECASE)
@@ -37,6 +51,8 @@ class QueryGuardrail:
         normalized = re.sub(r'\bdatabse\b', 'database', normalized, flags=re.IGNORECASE)
         normalized = re.sub(r'\bdatbase\b', 'database', normalized, flags=re.IGNORECASE)
         normalized = re.sub(r'\bdata\s+base\b', 'database', normalized, flags=re.IGNORECASE)
+        normalized = re.sub(r'\bpli\s+scheme\b', 'PLI manufacturing incentives', normalized, flags=re.IGNORECASE)
+        
         return normalized
 
     def validate_query(self, query: str) -> Dict[str, Any]:

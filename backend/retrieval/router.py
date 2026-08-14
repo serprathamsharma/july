@@ -41,8 +41,18 @@ class AdaptiveRetrievalRouter:
                 top_k=5
             )
 
-        # 3. Conceptual / Explanatory ("why", "how does", "explain", "describe")
-        if re.search(r'\b(why|how|explain|describe|difference|overview|summary|cause|effect)\b', clean_q, re.IGNORECASE):
+        # 3. Enumerative / List / Multi-attribute ("which", "what are the", "factors", "algorithms", "languages", "drivers")
+        if re.search(r'\b(which|what are the|factors|algorithms|languages|drivers|types|features|benefits|methods)\b', clean_q, re.IGNORECASE):
+            return QueryStrategy(
+                category="enumerative",
+                w_dense=0.55,
+                w_bm25=0.45,
+                preferred_chunk_types=["paragraph", "semantic"],
+                top_k=6
+            )
+
+        # 4. Conceptual / Explanatory ("why", "how does", "explain", "describe", "mechanism")
+        if re.search(r'\b(why|how|explain|describe|difference|overview|summary|cause|effect|mechanism)\b', clean_q, re.IGNORECASE):
             return QueryStrategy(
                 category="semantic",
                 w_dense=0.70,
@@ -51,7 +61,7 @@ class AdaptiveRetrievalRouter:
                 top_k=5
             )
 
-        # 4. General / Ambiguous Default
+        # 5. General / Ambiguous Default
         return QueryStrategy(
             category="ambiguous",
             w_dense=0.50,

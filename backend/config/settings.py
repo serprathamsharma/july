@@ -12,10 +12,14 @@ class Settings(BaseSettings):
     SARVAM_STT_URL: str = Field(default="https://api.sarvam.ai/speech-to-text-translate")
 
     # LLM Configuration
-    LLM_PROVIDER: str = Field(default="grounded_local")
+    LLM_PROVIDER: str = Field(default="auto") # auto | gemini | openai | grounded_local
     GEMINI_API_KEY: str = Field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
     OPENAI_API_KEY: str = Field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
+    GEMINI_MODEL: str = Field(default="gemini-2.0-flash")
+    OPENAI_MODEL: str = Field(default="gpt-4o-mini")
     LLM_MODEL: str = Field(default="gemini-2.0-flash")
+    LLM_TEMPERATURE: float = Field(default=0.2)
+    LLM_MAX_TOKENS: int = Field(default=256)
 
     # Embedding Model
     EMBEDDING_MODEL: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")

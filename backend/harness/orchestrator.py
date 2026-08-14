@@ -26,6 +26,7 @@ class RAGPipelineResponse(BaseModel):
     citations: List[str]
     retrieved_chunks: List[Dict[str, Any]]
     metrics: LatencyMetrics
+    provider: str = "grounded_local"
 
 class RAGOrchestrator:
     def __init__(
@@ -195,5 +196,6 @@ class RAGOrchestrator:
             confidence=round(llm_resp.confidence, 3),
             citations=llm_resp.citations,
             retrieved_chunks=chunks_payload,
-            metrics=final_metrics
+            metrics=final_metrics,
+            provider=llm_resp.provider
         )
