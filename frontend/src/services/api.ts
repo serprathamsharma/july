@@ -192,7 +192,21 @@ export const fetchSourceDetail = async (chunkId: string): Promise<RetrievedChunk
   return response.data;
 };
 
+export const synthesizeSpeech = async (
+  text: string,
+  languageCode: string = "en-IN",
+  speaker?: string
+): Promise<{ audio_base64: string; duration_ms: number; provider: string }> => {
+  const response = await axios.post(`${API_BASE_URL}/voice/tts`, {
+    text,
+    language_code: languageCode,
+    speaker
+  });
+  return response.data;
+};
+
 export const runBenchmark = async (): Promise<any> => {
   const response = await axios.post(`${API_BASE_URL}/benchmark/run`);
   return response.data;
 };
+

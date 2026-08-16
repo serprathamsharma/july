@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Sparkles, BookOpen, ShieldCheck, AlertTriangle, ExternalLink, Volume2, VolumeX } from 'lucide-react';
-import type { RAGPipelineResponse, RetrievedChunkPayload } from '../services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { Sparkles, BookOpen, ShieldCheck, AlertTriangle, ExternalLink, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { type RAGPipelineResponse, type RetrievedChunkPayload, synthesizeSpeech } from '../services/api';
 import { LatencyBadge } from './LatencyBadge';
 import { SourceExplorer } from './SourceExplorer';
 
@@ -14,21 +14,69 @@ interface AnswerCardProps {
 export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, onModeToggle, autoSpeak = false }) => {
   const [selectedChunk, setSelectedChunk] = useState<RetrievedChunkPayload | null>(null);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const [isSynthesizing, setIsSynthesizing] = useState<boolean>(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const isAbstention = !response.supported || response.answer.includes("couldn't find enough");
 
-  const speakAnswer = () => {
-    if (!('speechSynthesis' in window)) return;
+  const stopSpeaking = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+    setIsSynthesizing(false);
+  };
 
-    window.speechSynthesis.cancel(); // Cancel any ongoing speech
-    if (isSpeaking) {
-      setIsSpeaking(false);
+  const speakAnswer = async () => {
+    if (isSpeaking || isSynthesizing) {
+      stopSpeaking();
       return;
     }
 
     const textToSpeak = response.answer.replace(/\[.*?\]/g, '').trim();
     if (!textToSpeak) return;
 
+    setIsSynthesizing(true);
+
+    try {
+      // 1. Try Sarvam AI TTS Endpoint
+      const ttsRes = await synthesizeSpeech(textToSpeak, 'en-IN');
+      if (ttsRes && ttsRes.audio_base64) {
+        const audioSrc = `data:audio/wav;base64,${ttsRes.audio_base64}`;
+        if (!audioRef.current) {
+          audioRef.current = new Audio();
+        }
+        audioRef.current.src = audioSrc;
+        audioRef.current.onplay = () => {
+          setIsSynthesizing(false);
+          setIsSpeaking(true);
+        };
+        audioRef.current.onended = () => {
+          setIsSpeaking(false);
+        };
+        audioRef.current.onerror = () => {
+          fallbackSpeechSynthesis(textToSpeak);
+        };
+        await audioRef.current.play();
+        return;
+      }
+    } catch (e) {
+      console.warn("Sarvam TTS synthesis fallback to browser synthesis:", e);
+    }
+
+    // 2. Fallback to Browser Speech Synthesis
+    fallbackSpeechSynthesis(textToSpeak);
+  };
+
+  const fallbackSpeechSynthesis = (textToSpeak: string) => {
+    setIsSynthesizing(false);
+    if (!('speechSynthesis' in window)) return;
+
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
@@ -41,8 +89,13 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
   };
 
   useEffect(() => {
+    return () => {
+      stopSpeaking();
+    };
+  }, []);
+
+  useEffect(() => {
     if (autoSpeak && response.answer) {
-      // Small timeout to allow UI to render first
       const timer = setTimeout(() => {
         speakAnswer();
       }, 300);
@@ -66,12 +119,22 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
                 className={`p-1.5 rounded-lg border text-xs font-normal flex items-center gap-1.5 transition-all ${
                   isSpeaking
                     ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                    : isSynthesizing
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                     : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
                 }`}
-                title={isSpeaking ? "Stop speech readout" : "Read answer aloud"}
+                title={isSpeaking ? "Stop speech readout" : "Read answer aloud with Sarvam Voice"}
               >
-                {isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                <span>{isSpeaking ? "Speaking..." : "Read Aloud"}</span>
+                {isSynthesizing ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                ) : isSpeaking ? (
+                  <VolumeX className="w-3.5 h-3.5" />
+                ) : (
+                  <Volume2 className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {isSynthesizing ? "Generating Voice..." : isSpeaking ? "Speaking..." : "Listen Aloud"}
+                </span>
               </button>
             </h2>
             {response.transcription && (

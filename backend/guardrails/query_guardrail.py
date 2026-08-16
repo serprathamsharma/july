@@ -84,16 +84,80 @@ class QueryGuardrail:
 
         return sanitized, list(set(redacted_types))
 
+    def strip_disfluencies(self, query: str) -> str:
+        """
+        Removes verbal hesitations, speech disfluencies, and filler words from voice transcripts:
+        - English: 'umm', 'uh', 'uhm', 'er', 'ah', 'like', 'you know', 'basically', 'actually', 'sort of', 'kind of', 'i mean'
+        - Indic: 'matlab', 'accha', 'arrey', 'toh', 'hmmm'
+        """
+        if not query:
+            return ""
+
+        cleaned = query
+        disfluency_patterns = [
+            r'\b(u+m+|u+h+|u+h+m+|e+r+|a+h+|h+m+m+)\b',
+            r'\b(you\s+know|i\s+mean|sort\s+of|kind\s+of|so\s+yeah)\b',
+            r'\b(basically|actually|literally)\b',
+            r'\b(matlab|accha|arrey|toh\s+bhai|bhai)\b',
+            r'\b(like\s+(can|could|tell|what|how|why|is|are)|like)\b'
+        ]
+        for pat in disfluency_patterns:
+            cleaned = re.sub(pat, ' ', cleaned, flags=re.IGNORECASE)
+
+        # Collapse excess whitespace
+        return re.sub(r'\s+', ' ', cleaned).strip()
+
+    def detect_language(self, query: str) -> Dict[str, Any]:
+        """
+        Detects query language and script type for Indic/English auto-routing.
+        Supports: Devanagari (Hindi/Marathi), Tamil, Telugu, Bengali, Gujarati, Kannada, Malayalam, Punjabi, Odia, and Latin (English/Hinglish).
+        """
+        if not query:
+            return {"language": "English", "language_code": "en-IN", "script": "Latin"}
+
+        # Check Unicode script ranges
+        for char in query:
+            code = ord(char)
+            if 0x0900 <= code <= 0x097F:
+                return {"language": "Hindi", "language_code": "hi-IN", "script": "Devanagari"}
+            elif 0x0B80 <= code <= 0x0BFF:
+                return {"language": "Tamil", "language_code": "ta-IN", "script": "Tamil"}
+            elif 0x0C00 <= code <= 0x0C7F:
+                return {"language": "Telugu", "language_code": "te-IN", "script": "Telugu"}
+            elif 0x0980 <= code <= 0x09FF:
+                return {"language": "Bengali", "language_code": "bn-IN", "script": "Bengali"}
+            elif 0x0A80 <= code <= 0x0AFF:
+                return {"language": "Gujarati", "language_code": "gu-IN", "script": "Gujarati"}
+            elif 0x0C80 <= code <= 0x0CFF:
+                return {"language": "Kannada", "language_code": "kn-IN", "script": "Kannada"}
+            elif 0x0D00 <= code <= 0x0D7F:
+                return {"language": "Malayalam", "language_code": "ml-IN", "script": "Malayalam"}
+            elif 0x0A00 <= code <= 0x0A7F:
+                return {"language": "Punjabi", "language_code": "pa-IN", "script": "Gurmukhi"}
+            elif 0x0B00 <= code <= 0x0B7F:
+                return {"language": "Odia", "language_code": "or-IN", "script": "Odia"}
+
+        # Latin Script - Check for Hinglish / Romanized Hindi cues
+        hinglish_words = {"kya", "kaise", "batao", "hai", "hota", "karo", "kyun", "kahan", "samjhao"}
+        words = set(re.findall(r'\b\w+\b', query.lower()))
+        if words.intersection(hinglish_words):
+            return {"language": "Hinglish", "language_code": "hi-IN", "script": "Latin"}
+
+        return {"language": "English", "language_code": "en-IN", "script": "Latin"}
+
     def normalize_query(self, query: str) -> str:
         """
         Collapses spelled-out letters (e.g. 'm s m a r c o' -> 'MSMARCO'),
-        strips conversational preamble/fillers, normalizes acronyms, and redacts PII.
+        strips disfluencies, preamble/fillers, normalizes acronyms, and redacts PII.
         """
         if not query:
             return ""
         
-        # Redact PII first
-        sanitized, _ = self.redact_pii(query)
+        # 1. Strip disfluencies & speech fillers
+        clean_speech = self.strip_disfluencies(query)
+
+        # 2. Redact PII
+        sanitized, _ = self.redact_pii(clean_speech)
         normalized = sanitized.strip()
 
         # 1. Strip conversational preamble / filler phrases

@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from backend.config.settings import settings
 from backend.stt.sarvam import SarvamSTTProvider
+from backend.voice.tts import SarvamTTSProvider
 from backend.retrieval.faiss_index import FAISSVectorIndex
 from backend.retrieval.bm25_index import BM25LexicalIndex
 from backend.harness.orchestrator import RAGOrchestrator, RAGPipelineResponse
@@ -28,6 +29,7 @@ faiss_idx = FAISSVectorIndex(
 bm25_idx = BM25LexicalIndex()
 orchestrator: Optional[RAGOrchestrator] = None
 stt_provider = SarvamSTTProvider()
+tts_provider = SarvamTTSProvider()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -86,6 +88,11 @@ class TextQueryRequest(BaseModel):
     mode: str = "RAG"  # RAG or End-to-End
     session_id: Optional[str] = None
 
+class TTSRequest(BaseModel):
+    text: str
+    language_code: Optional[str] = "en-IN"
+    speaker: Optional[str] = None
+
 @app.get("/api/health")
 async def health_check():
     return {
@@ -97,6 +104,7 @@ async def health_check():
         "indexed_chunks": len(faiss_idx.chunks),
         "cache": query_cache.get_stats(),
         "sarvam_stt_configured": bool(settings.SARVAM_API_KEY and not settings.SARVAM_API_KEY.startswith("your_")),
+        "sarvam_tts_configured": bool(settings.SARVAM_API_KEY and not settings.SARVAM_API_KEY.startswith("your_")),
         "gemini_llm_configured": bool(settings.GEMINI_API_KEY and not settings.GEMINI_API_KEY.startswith("your_"))
     }
 
@@ -108,6 +116,14 @@ async def get_cache_stats():
 async def clear_cache():
     query_cache.clear()
     return {"status": "cleared", "cache": query_cache.get_stats()}
+
+@app.post("/api/voice/tts")
+async def synthesize_speech(req: TTSRequest):
+    return await tts_provider.synthesize(
+        text=req.text,
+        target_language_code=req.language_code or "en-IN",
+        speaker=req.speaker
+    )
 
 @app.post("/api/text/query", response_model=RAGPipelineResponse)
 async def process_text_query(req: TextQueryRequest):

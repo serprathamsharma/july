@@ -7,9 +7,12 @@ class Settings(BaseSettings):
     PORT: int = 8000
     ENVIRONMENT: str = "development"
 
-    # Sarvam Speech-to-Text
+    # Sarvam Speech-to-Text & Text-to-Speech
     SARVAM_API_KEY: str = Field(default_factory=lambda: os.getenv("SARVAM_API_KEY", ""))
     SARVAM_STT_URL: str = Field(default="https://api.sarvam.ai/speech-to-text-translate")
+    SARVAM_TTS_URL: str = Field(default="https://api.sarvam.ai/text-to-speech")
+    SARVAM_TTS_SPEAKER: str = Field(default="meera")
+    ENABLE_TTS: bool = Field(default=True)
 
     # LLM Configuration
     LLM_PROVIDER: str = Field(default="auto") # auto | gemini | openai | grounded_local

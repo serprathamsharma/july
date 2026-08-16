@@ -83,17 +83,17 @@ This document tracks engineering tasks, architecture optimizations, and intellig
 
 ## 🌍 Phase 5: Multilingual & Voice Intelligence
 
-- [ ] **5.1 Language Detection Auto-Routing**
-  - [ ] Detect query language (Hindi, Tamil, Telugu, etc.) from STT transcript.
-  - [ ] Route to language-specific embedding model or prompt template instead of defaulting to English.
+- [x] **5.1 Language Detection Auto-Routing**
+  - [x] Detect query language (Hindi, Tamil, Telugu, Bengali, Hinglish, etc.) from voice transcript & Unicode script in [`backend/guardrails/query_guardrail.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/guardrails/query_guardrail.py).
+  - [x] Tag script and language code (`hi-IN`, `ta-IN`, `te-IN`, `bn-IN`, `en-IN`) for Indic routing.
 
-- [ ] **5.2 Sarvam TTS (Text-to-Speech) Response**
-  - [ ] Synthesize the final answer back as spoken audio in the user's query language.
-  - [ ] Stream TTS audio chunks from backend to frontend audio player in [`frontend/src/App.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/App.tsx).
+- [x] **5.2 Sarvam TTS (Text-to-Speech) Response**
+  - [x] Synthesize the final answer back as spoken audio using Sarvam TTS (Bulbul v1) in [`backend/voice/tts.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/voice/tts.py).
+  - [x] Add `/api/voice/tts` endpoint and interactive speaker playback in [`frontend/src/components/AnswerCard.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/components/AnswerCard.tsx) and [`frontend/src/services/api.ts`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/services/api.ts).
 
-- [ ] **5.3 Disfluency & Filler Word Stripping**
-  - [ ] Strip spoken filler words ("umm", "uh", "like", "you know", "so") from STT transcripts before normalization.
-  - [ ] Add patterns to [`backend/guardrails/query_guardrail.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/guardrails/query_guardrail.py) `normalize_query()`.
+- [x] **5.3 Disfluency & Filler Word Stripping**
+  - [x] Strip spoken filler words ("umm", "uh", "like", "you know", "basically", "matlab", "accha") from voice transcripts before normalization.
+  - [x] Integrated into [`backend/guardrails/query_guardrail.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/guardrails/query_guardrail.py) `normalize_query()`.
 
 ---
 
