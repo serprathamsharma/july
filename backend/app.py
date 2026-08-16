@@ -82,6 +82,7 @@ app.add_middleware(
 class TextQueryRequest(BaseModel):
     query: str
     mode: str = "RAG"  # RAG or End-to-End
+    session_id: Optional[str] = None
 
 @app.get("/api/health")
 async def health_check():
@@ -110,21 +111,22 @@ async def clear_cache():
 async def process_text_query(req: TextQueryRequest):
     if not orchestrator:
         raise HTTPException(status_code=503, detail="RAG Orchestrator is initializing")
-    return await orchestrator.execute_query(query=req.query, mode=req.mode)
+    return await orchestrator.execute_query(query=req.query, mode=req.mode, session_id=req.session_id)
 
 @app.post("/api/text/query/stream")
 async def process_text_query_stream(req: TextQueryRequest):
     if not orchestrator:
         raise HTTPException(status_code=503, detail="RAG Orchestrator is initializing")
     return StreamingResponse(
-        orchestrator.execute_query_stream(query=req.query, mode=req.mode),
+        orchestrator.execute_query_stream(query=req.query, mode=req.mode, session_id=req.session_id),
         media_type="text/event-stream"
     )
 
 @app.post("/api/voice/query", response_model=RAGPipelineResponse)
 async def process_voice_query(
     file: UploadFile = File(...),
-    language_code: Optional[str] = Form("en-IN")
+    language_code: Optional[str] = Form("en-IN"),
+    session_id: Optional[str] = Form(None)
 ):
     if not orchestrator:
         raise HTTPException(status_code=503, detail="RAG Orchestrator is initializing")
@@ -145,7 +147,8 @@ async def process_voice_query(
     pipeline_resp = await orchestrator.execute_query(
         query=transcribed_text,
         stt_ms=stt_ms,
-        mode="End-to-End"
+        mode="End-to-End",
+        session_id=session_id
     )
     pipeline_resp.transcription = transcribed_text
     return pipeline_resp

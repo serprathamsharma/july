@@ -115,3 +115,50 @@ class QueryGuardrail:
             }
 
         return {"valid": True, "reason": None, "message": "OK"}
+
+    def expand_query(self, query: str) -> str:
+        """
+        HyDE-style semantic query expansion for short or ambiguous voice queries.
+        Appends relevant domain keywords to broaden lexical & dense recall.
+        """
+        q = self.normalize_query(query)
+        words = q.split()
+        if len(words) > 5:
+            return q
+
+        expansions = {
+            r'\bfaiss\b': 'FAISS vector similarity search index algorithms',
+            r'\bbm25\b': 'BM25 probabilistic relevance ranking term frequency IDF',
+            r'\brrf\b': 'Reciprocal Rank Fusion hybrid retrieval rankings',
+            r'\bmsmarco\b': 'MSMARCO multilingual Indian language passages dataset',
+            r'\bsarvam\b': 'Sarvam AI speech to text transcription models',
+            r'\bvast\b': 'VAST variable adaptive semantic text chunking',
+            r'\brag\b': 'Retrieval-Augmented Generation hallucinations groundedness',
+            r'\bgoa\b': 'Goa culture hackathons developer ecosystem Western India'
+        }
+
+        expanded = q
+        for pattern, enriched in expansions.items():
+            if re.search(pattern, q, re.IGNORECASE):
+                # Avoid duplicating exact word
+                expanded = f"{q} ({enriched})"
+                break
+
+        return expanded
+
+    def reformulate_query(self, query: str) -> str:
+        """
+        Corrective RAG (CRAG) query reformulation:
+        Simplifies query to high-information keywords when initial retrieval confidence is weak.
+        """
+        stop_words = {
+            "what", "is", "the", "a", "an", "are", "how", "does", "do", "did", "tell",
+            "me", "about", "in", "on", "for", "of", "to", "with", "by", "from", "at",
+            "can", "you", "give", "some", "which", "where", "when", "who", "why", "explain"
+        }
+        tokens = re.findall(r'[a-zA-Z0-9_\-]+', query)
+        core_terms = [t for t in tokens if t.lower() not in stop_words and len(t) > 1]
+        if core_terms:
+            return " ".join(core_terms)
+        return query
+

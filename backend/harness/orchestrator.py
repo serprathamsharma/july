@@ -13,9 +13,72 @@ from backend.embeddings.encoder import EmbeddingEncoder
 from backend.retrieval.faiss_index import FAISSVectorIndex
 from backend.retrieval.bm25_index import BM25LexicalIndex
 from backend.retrieval.rrf import reciprocal_rank_fusion, ScoredChunk
+from backend.retrieval.reranker import CrossEncoderReranker
 from backend.generation.llm import GroundedLLMGenerator
 from backend.analytics.store import analytics_store
 from backend.cache.query_cache import query_cache
+import re
+
+class SessionContextManager:
+    """
+    Maintains sliding multi-turn conversation memory and automatically
+    rewrites ambiguous follow-up queries using coreference and entity resolution.
+    """
+    def __init__(self, max_history: int = 6):
+        self.sessions: Dict[str, List[Dict[str, str]]] = {}
+        self.max_history = max_history
+
+    def get_history(self, session_id: str) -> List[Dict[str, str]]:
+        return self.sessions.get(session_id, [])
+
+    def record_turn(self, session_id: Optional[str], user_query: str, system_answer: str):
+        if not session_id:
+            return
+        if session_id not in self.sessions:
+            self.sessions[session_id] = []
+        self.sessions[session_id].append({"query": user_query, "answer": system_answer})
+        if len(self.sessions[session_id]) > self.max_history:
+            self.sessions[session_id].pop(0)
+
+    def contextualize_query(self, query: str, session_id: Optional[str]) -> str:
+        """
+        Rewrites follow-up queries by replacing pronouns ('it', 'they', 'this', 'that')
+        with the primary subject entity from the previous conversation turn.
+        """
+        if not session_id or session_id not in self.sessions or not self.sessions[session_id]:
+            return query
+
+        last_turn = self.sessions[session_id][-1]
+        last_query = last_turn["query"]
+        
+        pronoun_patterns = [
+            r'\b(it|its|they|them|their|this|that|the tool|the framework|the dataset|the library|the scheme)\b'
+        ]
+        has_pronoun = any(re.search(pat, query, re.IGNORECASE) for pat in pronoun_patterns)
+        
+        if has_pronoun:
+            # 1. Look for acronym or domain entity in previous turn (excluding question words)
+            stop_entities = {"what", "how", "why", "where", "when", "which", "who", "tell", "explain", "describe", "can", "could", "is", "are", "the"}
+            candidates = re.findall(r'\b([A-Z]{2,}(?:-[A-Z0-9]+)?|[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b', last_query)
+            valid_candidates = [c for c in candidates if c.lower() not in stop_entities]
+            
+            subject = valid_candidates[0] if valid_candidates else ""
+            if not subject:
+                m = re.search(r'\b(?:what is|how does|tell me about|explain|describe)\s+([a-zA-Z0-9_\-]+)\b', last_query, re.IGNORECASE)
+                if m and m.group(1).lower() not in stop_entities:
+                    subject = m.group(1).upper()
+            
+            if subject:
+                rewritten = re.sub(
+                    r'\b(it|its|they|them|their|this|that|the tool|the framework|the dataset|the library|the scheme)\b',
+                    subject,
+                    query,
+                    flags=re.IGNORECASE
+                )
+                print(f"[SessionContextManager] Contextualized follow-up: '{query}' -> '{rewritten}'")
+                return rewritten
+
+        return query
 
 class RAGPipelineResponse(BaseModel):
     request_id: str
@@ -28,6 +91,7 @@ class RAGPipelineResponse(BaseModel):
     retrieved_chunks: List[Dict[str, Any]]
     metrics: LatencyMetrics
     provider: str = "grounded_local"
+    session_id: Optional[str] = None
 
 class RAGOrchestrator:
     def __init__(
@@ -40,22 +104,29 @@ class RAGOrchestrator:
         self.bm25_index = bm25_index or BM25LexicalIndex()
         
         self.router = AdaptiveRetrievalRouter()
+        self.reranker = CrossEncoderReranker()
+        self.session_manager = SessionContextManager()
         self.query_guardrail = QueryGuardrail()
         self.retrieval_guardrail = RetrievalGuardrail()
         self.grounding_guardrail = GroundingGuardrail()
         self.llm_generator = GroundedLLMGenerator()
 
-    async def execute_query(self, query: str, stt_ms: float = 0.0, mode: str = "RAG") -> RAGPipelineResponse:
+    async def execute_query(
+        self, query: str, stt_ms: float = 0.0, mode: str = "RAG", session_id: Optional[str] = None
+    ) -> RAGPipelineResponse:
         timer = RequestTimer(mode=mode)
         timer.metrics.stt_ms = round(stt_ms, 2)
 
+        # Stage 0: Multi-Turn Context De-referencing
+        contextualized_q = self.session_manager.contextualize_query(query, session_id)
+
         # Stage 1: Query Preprocessing, Normalization & Validation
         timer.start_step()
-        q_val = self.query_guardrail.validate_query(query)
+        q_val = self.query_guardrail.validate_query(contextualized_q)
         timer.stop_step("query_processing_ms")
         
         # Use normalized query for retrieval and cache key
-        normalized_query = self.query_guardrail.normalize_query(query)
+        normalized_query = self.query_guardrail.normalize_query(contextualized_q)
 
         if not q_val["valid"]:
             timer.stop_step("guardrail_ms")
@@ -69,7 +140,8 @@ class RAGOrchestrator:
                 confidence=q_val.get("confidence", 0.0),
                 citations=[],
                 retrieved_chunks=[],
-                metrics=final_metrics
+                metrics=final_metrics,
+                session_id=session_id
             )
 
         # Cache check: Fast Tier 1 / Tier 2 in-memory cache lookup (< 1ms)
@@ -136,21 +208,37 @@ class RAGOrchestrator:
 
             dense_results = []
 
-        # Stage 5: Score Fusion (RRF)
+        # Stage 5: Score Fusion (RRF) & Cross-Encoder Re-Ranking
         t_fus_start = time.perf_counter()
         fused_chunks = reciprocal_rank_fusion(
             dense_results=dense_results,
             bm25_results=bm25_results,
             w_dense=strategy.w_dense,
             w_bm25=strategy.w_bm25,
-            top_k=strategy.top_k
+            top_k=strategy.top_k * 2
         )
+        # Two-Stage Re-ranking with Cross-Encoder
+        fused_chunks = self.reranker.rerank(normalized_query, fused_chunks, top_k=strategy.top_k)
         timer.metrics.fusion_ms = round((time.perf_counter() - t_fus_start) * 1000, 2)
 
-        # Stage 6: Retrieval Guardrail (Evidence Relevance Check)
+        # Stage 6: Retrieval Guardrail (Evidence Relevance Check) & Corrective RAG (CRAG) Fallback
         t_guard_start = time.perf_counter()
         r_eval = self.retrieval_guardrail.evaluate_retrieval(fused_chunks)
         guard_ms = (time.perf_counter() - t_guard_start) * 1000
+
+        if not r_eval["passed"]:
+            # CRAG: Attempt Corrective Query Reformulation
+            reformulated = self.query_guardrail.reformulate_query(normalized_query)
+            if reformulated and reformulated != normalized_query:
+                print(f"[Corrective RAG] Triggering secondary retrieval pass with: '{reformulated}'")
+                bm25_secondary = self.bm25_index.search(reformulated, k=strategy.top_k * 2)
+                if bm25_secondary:
+                    sec_fused = reciprocal_rank_fusion([], bm25_secondary, w_dense=0.0, w_bm25=1.0, top_k=strategy.top_k)
+                    sec_fused = self.reranker.rerank(reformulated, sec_fused, top_k=strategy.top_k)
+                    sec_eval = self.retrieval_guardrail.evaluate_retrieval(sec_fused)
+                    if sec_eval["passed"]:
+                        fused_chunks = sec_fused
+                        r_eval = sec_eval
 
         if not r_eval["passed"]:
             timer.metrics.guardrail_ms = round(guard_ms, 2)
@@ -164,12 +252,26 @@ class RAGOrchestrator:
                 confidence=r_eval["confidence"],
                 citations=[],
                 retrieved_chunks=[],
-                metrics=final_metrics
+                metrics=final_metrics,
+                session_id=session_id
             )
 
-        # Stage 7: Grounded LLM Generation
+        # Stage 7: Parent-Child Context Expansion & Grounded LLM Generation
+        generation_chunks = []
+        for sc in fused_chunks:
+            # If sentence chunk, expand text with parent document context for comprehensive synthesis
+            chunk_copy = sc.chunk.model_copy()
+            if chunk_copy.chunk_type == "sentence" and chunk_copy.parent_document:
+                chunk_copy.text = chunk_copy.parent_document
+            generation_chunks.append(ScoredChunk(
+                chunk=chunk_copy,
+                rrf_score=sc.rrf_score,
+                dense_score=sc.dense_score,
+                bm25_score=sc.bm25_score
+            ))
+
         t_gen_start = time.perf_counter()
-        llm_resp = await self.llm_generator.generate_answer(query, fused_chunks)
+        llm_resp = await self.llm_generator.generate_answer(query, generation_chunks)
         gen_ms = (time.perf_counter() - t_gen_start) * 1000
         timer.metrics.generation_ms = round(gen_ms, 2)
 
@@ -190,7 +292,8 @@ class RAGOrchestrator:
                 confidence=0.0,
                 citations=[],
                 retrieved_chunks=[],
-                metrics=final_metrics
+                metrics=final_metrics,
+                session_id=session_id
             )
 
         # Format retrieved chunks summary for frontend / Source Explorer
@@ -210,6 +313,9 @@ class RAGOrchestrator:
 
         final_metrics = timer.finalize()
         analytics_store.record_request(final_metrics)
+
+        # Record conversation turn in multi-turn memory
+        self.session_manager.record_turn(session_id, query, llm_resp.answer)
 
         # Save to cache
         if settings.ENABLE_QUERY_CACHE and llm_resp.supported:
@@ -235,12 +341,15 @@ class RAGOrchestrator:
             citations=llm_resp.citations,
             retrieved_chunks=chunks_payload,
             metrics=final_metrics,
-            provider=llm_resp.provider
+            provider=llm_resp.provider,
+            session_id=session_id
         )
 
-    async def execute_query_stream(self, query: str, stt_ms: float = 0.0, mode: str = "RAG"):
+    async def execute_query_stream(
+        self, query: str, stt_ms: float = 0.0, mode: str = "RAG", session_id: Optional[str] = None
+    ):
         """
-        Async generator yielding SSE events:
+        Async generator yielding SSE events with Re-ranking, Coreference Resolution, and CRAG:
         - {"type": "stage", "stage": "query_processing", "detail": "..."}
         - {"type": "token", "token": "..."}
         - {"type": "done", "response": RAGPipelineResponse}
@@ -249,11 +358,14 @@ class RAGOrchestrator:
         timer = RequestTimer(mode=mode)
         timer.metrics.stt_ms = round(stt_ms, 2)
 
+        # Stage 0: Contextualize
+        contextualized_q = self.session_manager.contextualize_query(query, session_id)
+
         # Stage 1: Validation
         timer.start_step()
-        q_val = self.query_guardrail.validate_query(query)
+        q_val = self.query_guardrail.validate_query(contextualized_q)
         timer.stop_step("query_processing_ms")
-        normalized_query = self.query_guardrail.normalize_query(query)
+        normalized_query = self.query_guardrail.normalize_query(contextualized_q)
 
         if not q_val["valid"]:
             timer.stop_step("guardrail_ms")
@@ -268,7 +380,8 @@ class RAGOrchestrator:
                 confidence=0.0,
                 citations=[],
                 retrieved_chunks=[],
-                metrics=final_metrics
+                metrics=final_metrics,
+                session_id=session_id
             )
             yield f"data: {json.dumps({'type': 'done', 'response': resp.model_dump()})}\n\n"
             return
@@ -291,6 +404,7 @@ class RAGOrchestrator:
 
                 final_metrics = timer.finalize()
                 analytics_store.record_request(final_metrics)
+                self.session_manager.record_turn(session_id, query, cached_data["answer"])
                 
                 resp = RAGPipelineResponse(
                     request_id=timer.request_id,
@@ -301,7 +415,8 @@ class RAGOrchestrator:
                     citations=cached_data["citations"],
                     retrieved_chunks=cached_data.get("retrieved_chunks", []),
                     metrics=final_metrics,
-                    provider=f"{cached_data.get('provider', 'grounded_local')} (cached {hit_type})"
+                    provider=f"{cached_data.get('provider', 'grounded_local')} (cached {hit_type})",
+                    session_id=session_id
                 )
                 yield f"data: {json.dumps({'type': 'done', 'response': resp.model_dump()})}\n\n"
                 return
@@ -338,21 +453,34 @@ class RAGOrchestrator:
             timer.stop_step("bm25_ms")
             dense_results = []
 
-        # Stage 5: RRF Fusion
+        # Stage 5: RRF Fusion & Cross-Encoder Re-Ranking
         t_fus_start = time.perf_counter()
         fused_chunks = reciprocal_rank_fusion(
             dense_results=dense_results,
             bm25_results=bm25_results,
             w_dense=strategy.w_dense,
             w_bm25=strategy.w_bm25,
-            top_k=strategy.top_k
+            top_k=strategy.top_k * 2
         )
+        fused_chunks = self.reranker.rerank(normalized_query, fused_chunks, top_k=strategy.top_k)
         timer.metrics.fusion_ms = round((time.perf_counter() - t_fus_start) * 1000, 2)
 
-        # Stage 6: Retrieval Guardrail
+        # Stage 6: Retrieval Guardrail & CRAG
         t_guard_start = time.perf_counter()
         r_eval = self.retrieval_guardrail.evaluate_retrieval(fused_chunks)
         guard_ms = (time.perf_counter() - t_guard_start) * 1000
+
+        if not r_eval["passed"]:
+            reformulated = self.query_guardrail.reformulate_query(normalized_query)
+            if reformulated and reformulated != normalized_query:
+                bm25_sec = self.bm25_index.search(reformulated, k=strategy.top_k * 2)
+                if bm25_sec:
+                    sec_fused = reciprocal_rank_fusion([], bm25_sec, w_dense=0.0, w_bm25=1.0, top_k=strategy.top_k)
+                    sec_fused = self.reranker.rerank(reformulated, sec_fused, top_k=strategy.top_k)
+                    sec_eval = self.retrieval_guardrail.evaluate_retrieval(sec_fused)
+                    if sec_eval["passed"]:
+                        fused_chunks = sec_fused
+                        r_eval = sec_eval
 
         if not r_eval["passed"]:
             timer.metrics.guardrail_ms = round(guard_ms, 2)
@@ -367,18 +495,31 @@ class RAGOrchestrator:
                 confidence=r_eval["confidence"],
                 citations=[],
                 retrieved_chunks=[],
-                metrics=final_metrics
+                metrics=final_metrics,
+                session_id=session_id
             )
             yield f"data: {json.dumps({'type': 'done', 'response': resp.model_dump()})}\n\n"
             return
 
-        # Stage 7: Streaming Generation
+        # Stage 7: Parent-Child Context Expansion & Streaming Generation
         yield f"data: {json.dumps({'type': 'stage', 'stage': 'generating', 'detail': 'Generating grounded synthesis...'})}\n\n"
+        generation_chunks = []
+        for sc in fused_chunks:
+            chunk_copy = sc.chunk.model_copy()
+            if chunk_copy.chunk_type == "sentence" and chunk_copy.parent_document:
+                chunk_copy.text = chunk_copy.parent_document
+            generation_chunks.append(ScoredChunk(
+                chunk=chunk_copy,
+                rrf_score=sc.rrf_score,
+                dense_score=sc.dense_score,
+                bm25_score=sc.bm25_score
+            ))
+
         t_gen_start = time.perf_counter()
         first_token = True
         llm_resp = None
 
-        async for event_type, payload in self.llm_generator.generate_answer_stream(query, fused_chunks):
+        async for event_type, payload in self.llm_generator.generate_answer_stream(query, generation_chunks):
             if event_type == "token":
                 if first_token:
                     timer.metrics.ttft_ms = round((time.perf_counter() - timer.start_time) * 1000, 2)
@@ -411,6 +552,10 @@ class RAGOrchestrator:
         final_metrics = timer.finalize()
         analytics_store.record_request(final_metrics)
 
+        # Record conversation turn
+        if llm_resp:
+            self.session_manager.record_turn(session_id, query, llm_resp.answer)
+
         # Save to cache
         if settings.ENABLE_QUERY_CACHE and llm_resp and llm_resp.supported and g_val["grounded"]:
             query_cache.put(
@@ -435,7 +580,9 @@ class RAGOrchestrator:
             citations=llm_resp.citations if llm_resp else [],
             retrieved_chunks=chunks_payload,
             metrics=final_metrics,
-            provider=llm_resp.provider if llm_resp else "grounded_local"
+            provider=llm_resp.provider if llm_resp else "grounded_local",
+            session_id=session_id
         )
         yield f"data: {json.dumps({'type': 'done', 'response': resp.model_dump()})}\n\n"
+
 

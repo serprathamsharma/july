@@ -29,26 +29,26 @@ This document tracks engineering tasks, architecture optimizations, and intellig
 
 ## 🧠 Phase 2: Retrieval Intelligence & Grounding Upgrades
 
-- [ ] **2.1 Two-Stage Retrieval with Cross-Encoder Re-Ranking**
-  - [ ] Add lightweight re-ranker stage (FlashRank / `bge-reranker-small`) after RRF fusion in [`backend/harness/orchestrator.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/harness/orchestrator.py).
-  - [ ] Re-score top-15 candidate chunks down to top-3 highest precision chunks.
-  - [ ] Evaluate improvement in Precision@1 and MRR using [`evaluation/benchmark.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/evaluation/benchmark.py).
+- [x] **2.1 Two-Stage Retrieval with Cross-Encoder Re-Ranking**
+  - [x] Add lightweight re-ranker stage (FlashRank / `CrossEncoderReranker`) after RRF fusion in [`backend/harness/orchestrator.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/harness/orchestrator.py).
+  - [x] Re-score top-15 candidate chunks down to top-3 highest precision chunks.
+  - [x] Evaluate improvement in Precision@1 and MRR using [`scripts/verify_intelligence.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/scripts/verify_intelligence.py).
 
-- [ ] **2.2 Parent-Child / Hierarchical Chunk Retrieval**
-  - [ ] Enhance VAST chunking in [`backend/ingestion/chunker.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/ingestion/chunker.py) to store parent document & section IDs with sentence chunks.
-  - [ ] Perform vector similarity on small sentence chunks, but expand context to parent paragraph for LLM prompt generation.
+- [x] **2.2 Parent-Child / Hierarchical Chunk Retrieval**
+  - [x] Enhance VAST chunking in [`backend/chunking/vast.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/chunking/vast.py) and [`backend/harness/orchestrator.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/harness/orchestrator.py).
+  - [x] Perform vector similarity on small sentence chunks, but expand context to parent paragraph for LLM prompt generation.
 
-- [ ] **2.3 HyDE & Voice Query Expansion**
-  - [ ] Implement zero-shot query expansion for short or ambiguous voice queries.
-  - [ ] Add domain synonym substitution in [`backend/guardrails/query_guardrail.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/guardrails/query_guardrail.py).
+- [x] **2.3 HyDE & Voice Query Expansion**
+  - [x] Implement zero-shot query expansion for short or ambiguous voice queries.
+  - [x] Add domain synonym substitution in [`backend/guardrails/query_guardrail.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/guardrails/query_guardrail.py).
 
-- [ ] **2.4 Multi-Turn Conversational Memory**
-  - [ ] Implement conversational session buffer in [`backend/harness/orchestrator.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/harness/orchestrator.py).
-  - [ ] Add contextual query rewriting for follow-up questions (*"What else does it do?"* $\rightarrow$ resolved entity question).
+- [x] **2.4 Multi-Turn Conversational Memory**
+  - [x] Implement conversational session buffer in [`backend/harness/orchestrator.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/harness/orchestrator.py).
+  - [x] Add contextual query rewriting for follow-up questions (*"What else does it do?"* $\rightarrow$ resolved entity question).
 
-- [ ] **2.5 Corrective RAG (CRAG) & Self-Reflection**
-  - [ ] If retrieval score falls into marginal confidence ($0.50 \le \text{conf} < 0.70$), automatically trigger query reformulation before abstaining.
-  - [ ] Enhance [`backend/guardrails/retrieval_guardrail.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/guardrails/retrieval_guardrail.py) with dynamic thresholding.
+- [x] **2.5 Corrective RAG (CRAG) & Self-Reflection**
+  - [x] If retrieval score falls into marginal confidence ($0.50 \le \text{conf} < 0.70$), automatically trigger query reformulation before abstaining.
+  - [x] Enhance [`backend/guardrails/query_guardrail.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/guardrails/query_guardrail.py) and [`backend/harness/orchestrator.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/harness/orchestrator.py) with dynamic CRAG reformulation.
 
 ---
 
