@@ -1,24 +1,100 @@
 import re
-from typing import Dict, Any
+from typing import Dict, Any, Tuple, List
+from backend.config.settings import settings
 
 class QueryGuardrail:
     """
     Validates input queries before triggering retrieval pipeline.
-    Catches off-topic, empty, or malicious/unsafe requests.
+    Catches prompt injection, jailbreaks, malicious code, PII leakage, and off-topic requests.
     """
     UNSAFE_PATTERNS = [
-        r'\b(ignore previous instructions|drop table|system prompt|override safety|jailbreak)\b'
+        # 1. Prompt Injections & System Prompt Exfiltration
+        r'\b(ignore|disregard|forget)\s+(all\s+)?(previous|prior|above)?\s*(instructions?|prompts?|rules|guidelines)\b',
+        r'\b(print|show|output|leak|reveal|repeat|dump)\s+(the\s+)?(system\s+prompt|developer\s+instructions?|initial\s+prompt|system\s+instruction)\b',
+        r'\b(what\s+(is|are)\s+(your|the)\s+(system\s+prompt|initial\s+instructions?|system\s+message|developer\s+instructions?|initial\s+prompt))\b',
+        r'\b(tell\s+me\s+your\s+(initial|developer|system)\s+(prompt|instructions?))\b',
+        
+        # 2. Jailbreaks, Persona Overrides & Mode Switches
+        r'\b(jailbreak|override\s+safety|bypass\s+(all\s+)?guardrails?|dan\s+mode|unrestricted\s+mode)\b',
+        r'\b(act\s+as\s+an?\s+[\w\s]{0,30}\b(unfiltered|unrestricted|evil|dark|hacked|dan)\s+(ai|assistant|model|mode))\b',
+        r'\b(act\s+as\s+an?\s+(unfiltered|unrestricted|evil|dark|hacked|dan))\b',
+        r'\b(forget\s+all\s+(your\s+)?(rules|safety\s+filters|ethics|constraints))\b',
+        r'\b(disregard\s+(all\s+)?(safety\s+protocols|guidelines|rules))\b',
+
+        # 3. SQL / Command / Code Execution Injections
+        r'\b(drop\s+table|delete\s+from|union\s+select|insert\s+into|truncate\s+table)\b',
+        r'\b(exec\s*\(|eval\s*\(|os\.system|subprocess\.Popen|__import__)\b',
+        r'(\bselect\b.*\bfrom\b.*\bwhere\b)',
+
+        # 4. Cross-Site Scripting (XSS) & Markup Injections
+        r'(<script[\s>].*?</script>|<iframe|<svg[\s>]|javascript:|onerror\s*=|onload\s*=)',
+
+        # 5. Malicious Exfiltration & Credential Dumping
+        r'\b(dump\s+(database|passwords?|credentials?|all\s+users?))\b',
+        r'\b(leak\s+(api\s+keys?|secret\s+keys?|database\s+records?))\b'
     ]
+
+    def redact_pii(self, text: str) -> Tuple[str, List[str]]:
+        """
+        Detects and redacts Personal Identifiable Information (PII) from user queries:
+        - Emails
+        - Phone numbers (Indian & International E.164)
+        - Credit / Debit card candidate numbers
+        - National Identifiers (Indian PAN, Aadhaar, US SSN)
+        Returns: (sanitized_text, list_of_redacted_pii_types)
+        """
+        if not text or not settings.ENABLE_PII_REDACTION:
+            return text, []
+
+        redacted_types = []
+        sanitized = text
+
+        # 1. Email Redaction
+        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+        if re.search(email_pattern, sanitized):
+            sanitized = re.sub(email_pattern, '[REDACTED_EMAIL]', sanitized)
+            redacted_types.append("email")
+
+        # 2. Phone Numbers (Indian 10-digit mobile, +91 prefixes, US/Intl formats)
+        phone_patterns = [
+            r'(\+91[\-\s]?)?[6789]\d{9}\b',
+            r'\b(\+1[\-\s]?)?\(?\d{3}\)?[\-\s]?\d{3}[\-\s]?\d{4}\b'
+        ]
+        for pat in phone_patterns:
+            if re.search(pat, sanitized):
+                sanitized = re.sub(pat, '[REDACTED_PHONE]', sanitized)
+                redacted_types.append("phone")
+
+        # 3. Credit / Debit Cards (13 to 16 digits grouped or contiguous)
+        card_pattern = r'\b(?:\d{4}[\-\s]?){3}\d{4}\b|\b\d{16}\b'
+        if re.search(card_pattern, sanitized):
+            sanitized = re.sub(card_pattern, '[REDACTED_CARD]', sanitized)
+            redacted_types.append("credit_card")
+
+        # 4. National IDs: Indian PAN (5 letters + 4 digits + 1 letter), Aadhaar (12 digits), US SSN (3-2-4)
+        id_patterns = [
+            (r'\b[A-Z]{5}[0-9]{4}[A-Z]\b', '[REDACTED_PAN_ID]', 'pan_card'),
+            (r'\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b', '[REDACTED_AADHAAR_ID]', 'aadhaar_id'),
+            (r'\b\d{3}\-\d{2}\-\d{4}\b', '[REDACTED_SSN]', 'ssn')
+        ]
+        for pat, repl, label in id_patterns:
+            if re.search(pat, sanitized, re.IGNORECASE):
+                sanitized = re.sub(pat, repl, sanitized, flags=re.IGNORECASE)
+                redacted_types.append(label)
+
+        return sanitized, list(set(redacted_types))
 
     def normalize_query(self, query: str) -> str:
         """
         Collapses spelled-out letters (e.g. 'm s m a r c o' -> 'MSMARCO'),
-        strips conversational preamble/fillers, and normalizes domain acronyms.
+        strips conversational preamble/fillers, normalizes acronyms, and redacts PII.
         """
         if not query:
             return ""
         
-        normalized = query.strip()
+        # Redact PII first
+        sanitized, _ = self.redact_pii(query)
+        normalized = sanitized.strip()
 
         # 1. Strip conversational preamble / filler phrases
         preambles = [

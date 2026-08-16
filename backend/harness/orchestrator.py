@@ -334,7 +334,7 @@ class RAGOrchestrator:
 
         return RAGPipelineResponse(
             request_id=timer.request_id,
-            query=query,
+            query=normalized_query,
             answer=llm_resp.answer,
             supported=llm_resp.supported,
             confidence=round(llm_resp.confidence, 3),
@@ -573,7 +573,7 @@ class RAGOrchestrator:
 
         resp = RAGPipelineResponse(
             request_id=timer.request_id,
-            query=query,
+            query=normalized_query,
             answer=llm_resp.answer if llm_resp else "",
             supported=llm_resp.supported if llm_resp else False,
             confidence=round(llm_resp.confidence, 3) if llm_resp else 0.0,

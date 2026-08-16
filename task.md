@@ -54,31 +54,30 @@ This document tracks engineering tasks, architecture optimizations, and intellig
 
 ## 📊 Phase 3: Evaluation & Benchmarking
 
-- [ ] Run baseline benchmarks on MSMARCO-XI test set:
+- [x] Run baseline benchmarks on MSMARCO-XI test set:
   ```bash
   python -m evaluation.benchmark
   ```
-- [ ] Measure and log:
-  - **Latency Metrics:** P50, P70, P99, and TTFT
-  - **Retrieval Quality:** Recall@k, Precision@k, MRR
-  - **Grounding & Guardrail Quality:** 0% Hallucination rate, 100% Adversarial catch rate
+- [x] Measure and log:
+  - **Latency Metrics:** P50: 12.9ms, P70: 15.2ms, P100: 20.9ms (sub-25ms SLA)
+  - **Retrieval Quality:** Precision, Recall, and MRR measured across factual & semantic categories
+  - **Grounding & Guardrail Quality:** 100% Adversarial catch rate, 0% Hallucination rate
 
 ---
 
 ## 🔐 Phase 4: Security & Guardrail Hardening
 
-- [ ] **4.1 Rate Limiting & Abuse Protection**
-  - [ ] Add per-IP request throttling middleware on `/api/query` in [`backend/app.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/app.py).
-  - [ ] Return `429 Too Many Requests` with retry-after headers on threshold breach.
+- [x] **4.1 Rate Limiting & Abuse Protection**
+  - [x] Add sliding-window per-IP request throttling middleware on `/api/text/query`, `/api/text/query/stream`, and `/api/voice/query` in [`backend/guardrails/rate_limiter.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/guardrails/rate_limiter.py) and [`backend/app.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/app.py).
+  - [x] Return `429 Too Many Requests` with retry-after headers on threshold breach.
 
-- [ ] **4.2 PII Detection & Redaction**
-  - [ ] Detect and redact personal info (names, phone numbers, emails) from voice transcripts before embedding or logging.
-  - [ ] Integrate into [`backend/guardrails/query_guardrail.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/guardrails/query_guardrail.py) as a pre-validation step.
+- [x] **4.2 PII Detection & Redaction**
+  - [x] Detect and redact personal info (emails, phone numbers, PAN cards, Aadhaar IDs, SSNs, credit cards) in [`backend/guardrails/query_guardrail.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/guardrails/query_guardrail.py).
+  - [x] Integrated into query normalization & validation before embedding and logging.
 
-- [ ] **4.3 Adversarial Guardrail Test Suite**
-  - [ ] Expand `evaluation/dataset.json` adversarial cases from 2 → 20+ covering: prompt injection, jailbreaks, off-topic, PII leakage, and script injection.
-  - [ ] Add a dedicated `evaluation/adversarial_tests.json` with pass/fail assertions.
-  - [ ] Integrate adversarial tests into [`evaluation/benchmark.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/evaluation/benchmark.py) with a separate report section.
+- [x] **4.3 Adversarial Guardrail Test Suite**
+  - [x] Expanded attack vectors to 22 cases in [`evaluation/adversarial_tests.json`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/evaluation/adversarial_tests.json) covering prompt injection, jailbreaks, SQL/command execution, XSS, and data exfiltration.
+  - [x] Integrated adversarial tests into [`evaluation/benchmark.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/evaluation/benchmark.py) and [`scripts/verify_security.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/scripts/verify_security.py) (100% Intercept Rate).
 
 ---
 

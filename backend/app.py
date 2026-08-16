@@ -17,6 +17,7 @@ from backend.retrieval.bm25_index import BM25LexicalIndex
 from backend.harness.orchestrator import RAGOrchestrator, RAGPipelineResponse
 from backend.analytics.store import analytics_store
 from backend.cache.query_cache import query_cache
+from backend.guardrails.rate_limiter import RateLimitMiddleware
 
 # Global index and orchestrator instances
 faiss_idx = FAISSVectorIndex(
@@ -71,6 +72,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

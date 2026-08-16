@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     CACHE_SEMANTIC_THRESHOLD: float = Field(default=0.96)
     CACHE_TTL_SECONDS: int = Field(default=3600)
 
+    # Rate Limiting & Security
+    ENABLE_RATE_LIMITING: bool = Field(default=True)
+    RATE_LIMIT_PER_MINUTE: int = Field(default=60)
+    ENABLE_PII_REDACTION: bool = Field(default=True)
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
