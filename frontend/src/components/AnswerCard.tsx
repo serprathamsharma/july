@@ -74,18 +74,44 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
 
   const fallbackSpeechSynthesis = (textToSpeak: string) => {
     setIsSynthesizing(false);
-    if (!('speechSynthesis' in window)) return;
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn("Web SpeechSynthesis API not supported in this browser.");
+      return;
+    }
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(textToSpeak);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
+    try {
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.lang = 'en-IN';
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+      // Pick Indian English or default English voice if available
+      const voices = window.speechSynthesis.getVoices();
+      if (voices && voices.length > 0) {
+        const indicVoice = voices.find(v => v.lang.includes('IN') || v.name.includes('India') || v.name.includes('Indian'));
+        if (indicVoice) {
+          utterance.voice = indicVoice;
+        }
+      }
 
-    window.speechSynthesis.speak(utterance);
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = (e) => {
+        console.warn("Speech synthesis error:", e);
+        setIsSpeaking(false);
+      };
+
+      window.speechSynthesis.speak(utterance);
+      // Fix for Chromium speech synthesis pauses
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+    } catch (err) {
+      console.error("Speech synthesis invocation failed:", err);
+      setIsSpeaking(false);
+    }
   };
 
   useEffect(() => {

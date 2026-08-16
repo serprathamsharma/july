@@ -11,6 +11,8 @@ export const App: React.FC = () => {
   const [ragResponse, setRagResponse] = useState<RAGPipelineResponse | null>(null);
   const [selectedMode, setSelectedMode] = useState<'RAG' | 'End-to-End'>('End-to-End');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [textQueryInput, setTextQueryInput] = useState('');
+  const [isSubmittingText, setIsSubmittingText] = useState(false);
   const isManualScrollingRef = useRef(false);
 
   // Animated Stats Counter State matching actual RAG dataset & performance data
@@ -57,6 +59,54 @@ export const App: React.FC = () => {
 
     return () => cancelAnimationFrame(animationFrameId);
   }, []);
+
+  const submitTextQuery = async (queryText: string) => {
+    const q = queryText.trim();
+    if (!q) return;
+
+    setIsSubmittingText(true);
+    setMicState('Generating');
+
+    try {
+      let accumulatedTokens = '';
+      const response = await processTextQueryStream(
+        q,
+        selectedMode,
+        (token) => {
+          accumulatedTokens += token;
+          setRagResponse((prev) => ({
+            request_id: prev?.request_id || 'streaming...',
+            query: q,
+            answer: accumulatedTokens,
+            supported: true,
+            confidence: 0.95,
+            citations: prev?.citations || [],
+            retrieved_chunks: prev?.retrieved_chunks || [],
+            metrics: prev?.metrics || {
+              request_id: 'live',
+              stt_ms: 0,
+              query_processing_ms: 0,
+              embedding_ms: 0,
+              dense_retrieval_ms: 0,
+              bm25_ms: 0,
+              fusion_ms: 0,
+              generation_ms: 0,
+              guardrail_ms: 0,
+              total_ms: 0,
+              mode: selectedMode
+            }
+          }));
+        }
+      );
+      setRagResponse(response);
+      setMicState('Complete');
+    } catch (err) {
+      console.error('Error submitting text query:', err);
+      setMicState('Error');
+    } finally {
+      setIsSubmittingText(false);
+    }
+  };
 
   // Dynamic scroll listener to update activeSection on scroll
   useEffect(() => {
@@ -279,6 +329,54 @@ export const App: React.FC = () => {
             onAudioRecorded={handleAudioRecorded}
             onStateChange={setMicState}
           />
+
+          {/* Quick Text Query Bar & Suggestion Pills */}
+          <div className="w-full max-w-xl mt-4 mb-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitTextQuery(textQueryInput);
+              }}
+              className="flex items-center gap-2 bg-slate-900/90 border border-slate-700/70 rounded-full px-4 py-2 shadow-inner focus-within:border-indigo-500 transition-all"
+            >
+              <input
+                type="text"
+                placeholder="Or type a question (e.g. What is FAISS?)..."
+                value={textQueryInput}
+                onChange={(e) => setTextQueryInput(e.target.value)}
+                disabled={isSubmittingText}
+                className="bg-transparent border-none outline-none flex-1 text-sm text-slate-100 placeholder-slate-500 font-normal"
+              />
+              <button
+                type="submit"
+                disabled={isSubmittingText || !textQueryInput.trim()}
+                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-full text-xs font-semibold tracking-wide transition-all shadow-md"
+              >
+                {isSubmittingText ? 'Asking...' : 'Ask'}
+              </button>
+            </form>
+
+            {/* Quick Sample Question Pills */}
+            <div className="flex items-center justify-center gap-2 mt-3 flex-wrap">
+              {[
+                "What is FAISS?",
+                "What factors does BM25 compute?",
+                "Explain Reciprocal Rank Fusion",
+                "Who won Hacker House Goa 2026?"
+              ].map((q) => (
+                <button
+                  key={q}
+                  onClick={() => {
+                    setTextQueryInput(q);
+                    submitTextQuery(q);
+                  }}
+                  className="text-[11px] font-mono px-3 py-1 bg-slate-800/60 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/50 rounded-full transition-all cursor-pointer"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Grounded Answer Card */}
           {ragResponse && (

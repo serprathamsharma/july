@@ -93,20 +93,17 @@ class SarvamTTSProvider:
                                 "provider": "sarvam_ai"
                             }
             except Exception as e:
-                print(f"[SarvamTTS] API call failed: {e}. Falling back to standard synthesized audio.")
+                print(f"[SarvamTTS] API call failed: {e}. Falling back to browser speech synthesis.")
 
-        # Fallback audio generation (synthesizes silent/clean WAV payload so UI audio players play seamlessly)
-        wav_header = self._generate_fallback_wav(clean_text)
-        audio_b64 = base64.b64encode(wav_header).decode("utf-8")
-        self._cache[cache_key] = audio_b64
+        # Fallback: Indicate to client to use high-fidelity Web Speech API
         latency_ms = round((time.perf_counter() - t_start) * 1000, 2)
         return {
-            "audio_base64": audio_b64,
+            "audio_base64": None,
             "language_code": target_language_code,
             "speaker": speaker_name,
             "duration_ms": latency_ms,
             "cached": False,
-            "provider": "synthetic_wav_fallback"
+            "provider": "browser_speech_fallback"
         }
 
     def _generate_fallback_wav(self, text: str) -> bytes:

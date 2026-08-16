@@ -192,14 +192,18 @@ export const MicButton: React.FC<MicButtonProps> = ({
       )}
 
       {/* Status Label */}
-      <div className="mt-8 text-center">
+      <div className="mt-8 text-center max-w-sm">
         <span className="text-xs sm:text-sm font-medium tracking-wider uppercase text-slate-400">
           {state === 'Listening' && 'Tap the red button to finish speaking'}
           {state === 'Processing' && 'STT Transcription in progress...'}
           {state === 'Generating' && 'Grounded RAG Retrieval & LLM Generation...'}
           {state === 'Idle' && 'Tap to ask anything via voice'}
           {state === 'Complete' && 'Ready for next question'}
-          {state === 'Error' && 'Mic access failed or error occurred'}
+          {state === 'Error' && (
+            <span className="text-amber-400 font-semibold flex items-center justify-center gap-1.5 cursor-pointer" onClick={handleClick}>
+              <span>Mic access blocked / failed. Tap here to retry or type below</span>
+            </span>
+          )}
         </span>
       </div>
     </div>
