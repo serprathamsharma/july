@@ -29,9 +29,18 @@ class Settings(BaseSettings):
     DATASET_NAME: str = Field(default="ai4bharat/MSMARCO-XI")
     MAX_INGEST_DOCUMENTS: int = Field(default=1000)
 
-    # Retrieval parameters
+    # Retrieval & Indexing parameters
+    FAISS_INDEX_TYPE: str = Field(default="flat")  # flat | hnsw
+    FAISS_HNSW_M: int = Field(default=32)
+    FAISS_HNSW_EF_SEARCH: int = Field(default=64)
     RETRIEVAL_TOP_K: int = Field(default=5)
     RELEVANCE_THRESHOLD: float = Field(default=0.012)
+
+    # Caching
+    ENABLE_QUERY_CACHE: bool = Field(default=True)
+    CACHE_MAX_ENTRIES: int = Field(default=1000)
+    CACHE_SEMANTIC_THRESHOLD: float = Field(default=0.96)
+    CACHE_TTL_SECONDS: int = Field(default=3600)
 
     class Config:
         env_file = ".env"

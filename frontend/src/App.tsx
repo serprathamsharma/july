@@ -3,7 +3,7 @@ import { Sparkles, Activity } from 'lucide-react';
 import { MicButton, type MicState } from './components/MicButton';
 import { AnswerCard } from './components/AnswerCard';
 import { AnalyticsView } from './components/AnalyticsView';
-import { processTextQuery, processVoiceQuery, type RAGPipelineResponse } from './services/api';
+import { processTextQuery, processTextQueryStream, processVoiceQuery, type RAGPipelineResponse } from './services/api';
 
 export const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<'hero' | 'voice-rag' | 'analytics'>('hero');
@@ -37,9 +37,13 @@ export const App: React.FC = () => {
         documents: Math.round(1000 * easeOut),
         chunks: Math.round(3450 * easeOut),
       });
+    };
 
-      if (progress < 1) {
-        requestAnimationFrame(updateStats);
+    let animationFrameId: number;
+    const animate = (currentTime: number) => {
+      updateStats(currentTime);
+      if (currentTime - startTime < duration) {
+        animationFrameId = requestAnimationFrame(animate);
       } else {
         setStats({
           latency: 200,
@@ -49,12 +53,9 @@ export const App: React.FC = () => {
         });
       }
     };
+    animationFrameId = requestAnimationFrame(animate);
 
-    const timer = setTimeout(() => {
-      requestAnimationFrame(updateStats);
-    }, 400);
-
-    return () => clearTimeout(timer);
+    return () => cancelAnimationFrame(animationFrameId);
   }, []);
 
   // Dynamic scroll listener to update activeSection on scroll
@@ -109,15 +110,45 @@ export const App: React.FC = () => {
 
     try {
       const queryToSubmit = liveTranscript?.trim();
-      let response: RAGPipelineResponse;
 
       if (queryToSubmit) {
-        response = await processTextQuery(queryToSubmit, selectedMode);
+        // Stream text response token-by-token
+        let accumulatedTokens = '';
+        const response = await processTextQueryStream(
+          queryToSubmit,
+          selectedMode,
+          (token) => {
+            accumulatedTokens += token;
+            setRagResponse((prev) => ({
+              request_id: prev?.request_id || 'streaming...',
+              query: queryToSubmit,
+              answer: accumulatedTokens,
+              supported: true,
+              confidence: 0.95,
+              citations: prev?.citations || [],
+              retrieved_chunks: prev?.retrieved_chunks || [],
+              metrics: prev?.metrics || {
+                request_id: 'live',
+                stt_ms: 0,
+                query_processing_ms: 0,
+                embedding_ms: 0,
+                dense_retrieval_ms: 0,
+                bm25_ms: 0,
+                fusion_ms: 0,
+                generation_ms: 0,
+                guardrail_ms: 0,
+                total_ms: 0,
+                mode: selectedMode
+              }
+            }));
+          }
+        );
+        setRagResponse(response);
       } else {
-        response = await processVoiceQuery(audioBlob, 'en-IN');
+        const response = await processVoiceQuery(audioBlob, 'en-IN');
+        setRagResponse(response);
       }
 
-      setRagResponse(response);
       setMicState('Complete');
     } catch (err) {
       console.error('Error processing audio/text query:', err);

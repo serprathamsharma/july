@@ -12,6 +12,9 @@ export interface LatencyMetrics {
   fusion_ms: number;
   generation_ms: number;
   guardrail_ms: number;
+  ttft_ms?: number;
+  cache_hit?: boolean;
+  cache_type?: string;
   total_ms: number;
   mode: string;
 }
@@ -79,6 +82,59 @@ export interface AnalyticsSummary {
 export const processTextQuery = async (query: string, mode: string = "RAG"): Promise<RAGPipelineResponse> => {
   const response = await axios.post<RAGPipelineResponse>(`${API_BASE_URL}/text/query`, { query, mode });
   return response.data;
+};
+
+export const processTextQueryStream = async (
+  query: string,
+  mode: string = "RAG",
+  onToken?: (token: string) => void,
+  onStage?: (stage: string, detail?: string) => void
+): Promise<RAGPipelineResponse> => {
+  const response = await fetch(`${API_BASE_URL}/text/query/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, mode })
+  });
+
+  if (!response.ok || !response.body) {
+    throw new Error(`Streaming failed: HTTP ${response.status}`);
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finalResponse: RAGPipelineResponse | null = null;
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data: ')) continue;
+      try {
+        const payload = JSON.parse(trimmed.slice(6));
+        if (payload.type === 'token' && onToken) {
+          onToken(payload.token);
+        } else if (payload.type === 'stage' && onStage) {
+          onStage(payload.stage, payload.detail);
+        } else if (payload.type === 'done') {
+          finalResponse = payload.response;
+        }
+      } catch (err) {
+        console.warn('Failed to parse SSE line:', line, err);
+      }
+    }
+  }
+
+  if (finalResponse) {
+    return finalResponse;
+  }
+  throw new Error("Stream finished without final response object");
 };
 
 export const processVoiceQuery = async (audioBlob: Blob, languageCode: string = "en-IN"): Promise<RAGPipelineResponse> => {

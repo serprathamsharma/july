@@ -3,6 +3,7 @@ import sys
 from contextlib import asynccontextmanager
 from typing import Dict, Any, Optional
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -15,9 +16,14 @@ from backend.retrieval.faiss_index import FAISSVectorIndex
 from backend.retrieval.bm25_index import BM25LexicalIndex
 from backend.harness.orchestrator import RAGOrchestrator, RAGPipelineResponse
 from backend.analytics.store import analytics_store
+from backend.cache.query_cache import query_cache
 
 # Global index and orchestrator instances
-faiss_idx = FAISSVectorIndex()
+faiss_idx = FAISSVectorIndex(
+    index_type=settings.FAISS_INDEX_TYPE,
+    hnsw_m=settings.FAISS_HNSW_M,
+    hnsw_ef_search=settings.FAISS_HNSW_EF_SEARCH
+)
 bm25_idx = BM25LexicalIndex()
 orchestrator: Optional[RAGOrchestrator] = None
 stt_provider = SarvamSTTProvider()
@@ -83,17 +89,37 @@ async def health_check():
         "status": "online",
         "system": "HH Goa 2026 Voice-Enabled RAG",
         "environment": settings.ENVIRONMENT,
+        "index_type": settings.FAISS_INDEX_TYPE,
         "indexed_documents": len(set(c.document_id for c in faiss_idx.chunks)),
         "indexed_chunks": len(faiss_idx.chunks),
+        "cache": query_cache.get_stats(),
         "sarvam_stt_configured": bool(settings.SARVAM_API_KEY and not settings.SARVAM_API_KEY.startswith("your_")),
         "gemini_llm_configured": bool(settings.GEMINI_API_KEY and not settings.GEMINI_API_KEY.startswith("your_"))
     }
+
+@app.get("/api/cache/stats")
+async def get_cache_stats():
+    return query_cache.get_stats()
+
+@app.post("/api/cache/clear")
+async def clear_cache():
+    query_cache.clear()
+    return {"status": "cleared", "cache": query_cache.get_stats()}
 
 @app.post("/api/text/query", response_model=RAGPipelineResponse)
 async def process_text_query(req: TextQueryRequest):
     if not orchestrator:
         raise HTTPException(status_code=503, detail="RAG Orchestrator is initializing")
     return await orchestrator.execute_query(query=req.query, mode=req.mode)
+
+@app.post("/api/text/query/stream")
+async def process_text_query_stream(req: TextQueryRequest):
+    if not orchestrator:
+        raise HTTPException(status_code=503, detail="RAG Orchestrator is initializing")
+    return StreamingResponse(
+        orchestrator.execute_query_stream(query=req.query, mode=req.mode),
+        media_type="text/event-stream"
+    )
 
 @app.post("/api/voice/query", response_model=RAGPipelineResponse)
 async def process_voice_query(

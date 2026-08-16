@@ -9,11 +9,21 @@ from backend.chunking.vast import ChunkMetadata
 class FAISSVectorIndex:
     """
     FAISS Dense Vector Index wrapper with inner-product (cosine similarity)
-    and chunk metadata mapping.
+    and chunk metadata mapping. Supports IndexFlatIP and IndexHNSWFlat.
     """
-    def __init__(self, dimension: int = 384):
+    def __init__(self, dimension: int = 384, index_type: str = "flat", hnsw_m: int = 32, hnsw_ef_search: int = 64):
         self.dimension = dimension
-        self.index = faiss.IndexFlatIP(dimension)
+        self.index_type = index_type
+        self.hnsw_m = hnsw_m
+        self.hnsw_ef_search = hnsw_ef_search
+
+        if index_type == "hnsw":
+            # IndexHNSWFlat with Inner Product metric for cosine similarity
+            self.index = faiss.IndexHNSWFlat(dimension, hnsw_m, faiss.METRIC_INNER_PRODUCT)
+            self.index.hnsw.efSearch = hnsw_ef_search
+        else:
+            self.index = faiss.IndexFlatIP(dimension)
+            
         self.chunks: List[ChunkMetadata] = []
 
     def add_chunks(self, chunks: List[ChunkMetadata], embeddings: np.ndarray):
@@ -21,8 +31,9 @@ class FAISSVectorIndex:
             raise ValueError(f"Mismatch between chunks count ({len(chunks)}) and embeddings count ({len(embeddings)})")
         
         # Ensure L2 normalized vectors for Cosine Similarity via Inner Product
-        faiss.normalize_L2(embeddings)
-        self.index.add(embeddings)
+        embs = embeddings.copy().astype(np.float32)
+        faiss.normalize_L2(embs)
+        self.index.add(embs)
         self.chunks.extend(chunks)
 
     def search(self, query_vector: np.ndarray, k: int = 10) -> List[Tuple[ChunkMetadata, float, int]]:

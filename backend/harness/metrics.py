@@ -13,6 +13,9 @@ class LatencyMetrics(BaseModel):
     fusion_ms: float = 0.0
     generation_ms: float = 0.0
     guardrail_ms: float = 0.0
+    ttft_ms: float = 0.0
+    cache_hit: bool = False
+    cache_type: Optional[str] = None  # None | "exact" | "semantic"
     total_ms: float = 0.0
     mode: str = "RAG"  # RAG or End-to-End
 
