@@ -26,6 +26,11 @@ class BM25LexicalIndex:
         self.bm25 = BM25Okapi(corpus)
         print(f"[BM25LexicalIndex] Built BM25 index over {len(chunks)} chunks.")
 
+    def add_chunks(self, new_chunks: List[ChunkMetadata]):
+        """Dynamically appends new chunks to the BM25 index and updates the corpus."""
+        combined = list(self.chunks) + list(new_chunks)
+        self.build_index(combined)
+
     def search(self, query: str, k: int = 10) -> List[Tuple[ChunkMetadata, float, int]]:
         """
         Search top k chunks using BM25.

@@ -27,19 +27,26 @@ def run_ingestion_pipeline(
     print(f"1. Loading dataset: {dataset_name} (limit={max_docs})...")
     documents = load_msmarco_xi_dataset(dataset_name, max_docs)
 
-    print("\n2. Executing VAST Multi-Strategy Chunking...")
+    print("\n2. Executing Parallel VAST Multi-Strategy Chunking...")
     chunker = VASTChunker(target_semantic_words=120, overlap_words=25)
     all_chunks: List[ChunkMetadata] = []
     chunk_counts = {"sentence": 0, "paragraph": 0, "semantic": 0}
 
-    for doc in documents:
-        res = chunker.process_document(doc["document_id"], doc["text"], doc.get("language", "en"))
+    from concurrent.futures import ThreadPoolExecutor
+
+    def process_doc_task(doc):
+        return chunker.process_document(doc["document_id"], doc["text"], doc.get("language", "en"))
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(process_doc_task, documents))
+
+    for res in results:
         all_chunks.extend(res["all"])
         chunk_counts["sentence"] += len(res["sentence"])
         chunk_counts["paragraph"] += len(res["paragraph"])
         chunk_counts["semantic"] += len(res["semantic"])
 
-    print(f"   Created {len(all_chunks)} total chunks:")
+    print(f"   Created {len(all_chunks)} total chunks across {len(documents)} documents:")
     print(f"   - Sentence chunks:  {chunk_counts['sentence']}")
     print(f"   - Paragraph chunks: {chunk_counts['paragraph']}")
     print(f"   - Semantic chunks:  {chunk_counts['semantic']}")

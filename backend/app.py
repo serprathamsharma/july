@@ -93,6 +93,21 @@ class TTSRequest(BaseModel):
     language_code: Optional[str] = "en-IN"
     speaker: Optional[str] = None
 
+class IngestDocumentRequest(BaseModel):
+    document_id: str
+    text: str
+    language: Optional[str] = "en"
+    metadata: Optional[Dict[str, Any]] = None
+
+@app.post("/api/ingest")
+async def ingest_document(req: IngestDocumentRequest):
+    """Hot-reloads and indexes a new document into FAISS and BM25 indexes live."""
+    if not orchestrator:
+        raise HTTPException(status_code=503, detail="RAG Orchestrator is initializing")
+    if not req.document_id or not req.text:
+        raise HTTPException(status_code=400, detail="Both document_id and text are required.")
+    return orchestrator.add_document(document_id=req.document_id, text=req.text, language=req.language or "en")
+
 @app.get("/api/health")
 async def health_check():
     return {
@@ -103,6 +118,7 @@ async def health_check():
         "indexed_documents": len(set(c.document_id for c in faiss_idx.chunks)),
         "indexed_chunks": len(faiss_idx.chunks),
         "cache": query_cache.get_stats(),
+        "sqlite_persisted": True,
         "sarvam_stt_configured": bool(settings.SARVAM_API_KEY and not settings.SARVAM_API_KEY.startswith("your_")),
         "sarvam_tts_configured": bool(settings.SARVAM_API_KEY and not settings.SARVAM_API_KEY.startswith("your_")),
         "gemini_llm_configured": bool(settings.GEMINI_API_KEY and not settings.GEMINI_API_KEY.startswith("your_"))

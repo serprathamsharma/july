@@ -1,3 +1,4 @@
+import os
 import asyncio
 import time
 from typing import Dict, Any, Optional, List
@@ -110,6 +111,51 @@ class RAGOrchestrator:
         self.retrieval_guardrail = RetrievalGuardrail()
         self.grounding_guardrail = GroundingGuardrail()
         self.llm_generator = GroundedLLMGenerator()
+
+    def add_document(self, document_id: str, text: str, language: str = "en") -> Dict[str, Any]:
+        """
+        Dynamically ingests a new document into FAISS and BM25 indexes at runtime (Hot-Reload).
+        Clears query cache to immediately serve fresh ground truth knowledge.
+        """
+        from backend.chunking.vast import VASTChunker
+        chunker = VASTChunker(target_semantic_words=120, overlap_words=25)
+        res = chunker.process_document(document_id, text, language)
+        new_chunks = res["all"]
+
+        if not new_chunks:
+            return {"status": "skipped", "message": "No valid chunks extracted from document"}
+
+        # 1. Encode dense embeddings
+        chunk_texts = [c.text for c in new_chunks]
+        embeddings = self.encoder.encode(chunk_texts)
+
+        # 2. Add to FAISS index
+        self.faiss_index.add_chunks(new_chunks, embeddings)
+
+        # 3. Add to BM25 index
+        self.bm25_index.add_chunks(new_chunks)
+
+        # 4. Save snapshots to disk
+        faiss_path = os.path.join(settings.INDEX_DIR, "faiss.index")
+        meta_path = os.path.join(settings.INDEX_DIR, "chunks_metadata.pkl")
+        bm25_path = os.path.join(settings.INDEX_DIR, "bm25.pkl")
+        self.faiss_index.save(faiss_path, meta_path)
+        self.bm25_index.save(bm25_path)
+
+        # 5. Clear query cache so new knowledge takes effect immediately
+        query_cache.clear()
+
+        # 6. Update analytics store
+        analytics_store.indexed_documents = len(set(c.document_id for c in self.faiss_index.chunks))
+        analytics_store.indexed_chunks = len(self.faiss_index.chunks)
+
+        return {
+            "status": "success",
+            "document_id": document_id,
+            "new_chunks_count": len(new_chunks),
+            "total_indexed_chunks": len(self.faiss_index.chunks),
+            "total_indexed_documents": analytics_store.indexed_documents
+        }
 
     async def execute_query(
         self, query: str, stt_ms: float = 0.0, mode: str = "RAG", session_id: Optional[str] = None

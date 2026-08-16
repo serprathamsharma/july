@@ -1,6 +1,7 @@
 import numpy as np
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from backend.harness.metrics import LatencyMetrics
+from backend.analytics.sqlite_store import SQLiteAnalyticsStore
 
 class AnalyticsStore:
     _instance = None
@@ -14,6 +15,7 @@ class AnalyticsStore:
     def _init_store(self):
         self.history: List[LatencyMetrics] = []
         self.max_history = 500
+        self.sqlite_store = SQLiteAnalyticsStore()
 
         # Guardrail counters
         self.queries_total = 0
@@ -28,14 +30,19 @@ class AnalyticsStore:
         self.embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
         self.active_chunking_strategy = "VAST (Sentence, Paragraph, Semantic)"
 
-    def record_request(self, metrics: LatencyMetrics, guardrail_event: str = None):
+    def record_request(self, metrics: LatencyMetrics, guardrail_event: Optional[str] = None):
         self.history.append(metrics)
         if len(self.history) > self.max_history:
             self.history.pop(0)
         
+        # Persist to SQLite
+        self.sqlite_store.record_request(metrics, guardrail_event=guardrail_event)
+
         self.queries_total += 1
-        if guardrail_event == "query_rejected":
+        if guardrail_event in ["query_rejected", "empty_query", "query_too_short"]:
             self.queries_rejected += 1
+            self.unsafe_queries_blocked += 1
+        elif guardrail_event in ["unsafe_query", "prompt_injection", "malicious_request"]:
             self.unsafe_queries_blocked += 1
         elif guardrail_event == "low_confidence":
             self.low_confidence_abstentions += 1
@@ -45,6 +52,7 @@ class AnalyticsStore:
     def reset(self):
         """Clear all accumulated history to reset latency metrics after redeploy."""
         self.history.clear()
+        self.sqlite_store.reset()
         self.queries_total = 0
         self.queries_rejected = 0
         self.low_confidence_abstentions = 0

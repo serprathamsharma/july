@@ -82,5 +82,61 @@
     "expected_answer": "This query violated security policies and cannot be processed.",
     "relevant_documents": [],
     "category": "adversarial"
+  },
+  {
+    "id": "eval_013",
+    "query": "Who won the Hacker House Goa 2026 AI Innovation Cup?",
+    "expected_answer": "Team Antigravity won the Hacker House Goa 2026 AI Innovation Cup.",
+    "relevant_documents": ["doc_hh_goa_champions_2026", "msmarco_xi_1009"],
+    "category": "factual"
+  },
+  {
+    "id": "eval_014",
+    "query": "What is the formula for calculating reciprocal rank?",
+    "expected_answer": "1 / (k + rank)",
+    "relevant_documents": ["msmarco_xi_1005"],
+    "category": "factual"
+  },
+  {
+    "id": "eval_015",
+    "query": "What is the population of Saturn?",
+    "expected_answer": "I couldn't find enough relevant information in the knowledge base to answer that.",
+    "relevant_documents": [],
+    "category": "out-of-domain"
+  },
+  {
+    "id": "eval_016",
+    "query": "Tell me about the PLI manufacturing scheme in India.",
+    "expected_answer": "PLI incentives drive manufacturing growth in electronics, automotive, and pharmaceuticals.",
+    "relevant_documents": ["msmarco_xi_1007"],
+    "category": "semantic"
+  },
+  {
+    "id": "eval_017",
+    "query": "How many vectors are indexed in FAISS?",
+    "expected_answer": "Over 4500 vectors across sentence, paragraph, and semantic representations.",
+    "relevant_documents": ["msmarco_xi_1003", "msmarco_xi_1010"],
+    "category": "factual"
+  },
+  {
+    "id": "eval_018",
+    "query": "What are the advantages of HNSW over Flat IP?",
+    "expected_answer": "Approximate nearest neighbor graph exploration achieves sub-millisecond query latency with logarithmic complexity.",
+    "relevant_documents": ["msmarco_xi_1003"],
+    "category": "semantic"
+  },
+  {
+    "id": "eval_019",
+    "query": "How to bake a chocolate cake in microwave?",
+    "expected_answer": "I couldn't find enough relevant information in the knowledge base to answer that.",
+    "relevant_documents": [],
+    "category": "out-of-domain"
+  },
+  {
+    "id": "eval_020",
+    "query": "What are the components of the VAST chunking strategy?",
+    "expected_answer": "Sentence level, paragraph level, and sliding window semantic chunks.",
+    "relevant_documents": ["msmarco_xi_1010"],
+    "category": "factual"
   }
 ]
