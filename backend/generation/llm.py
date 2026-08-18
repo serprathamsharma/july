@@ -14,6 +14,7 @@ class GroundedResponseSchema(BaseModel):
     supported: bool = True
     confidence: float = 0.90
     citations: List[str] = Field(default_factory=list)
+    follow_up_questions: List[str] = Field(default_factory=list)
     generation_ms: float = 0.0
     provider: str = "grounded_local"
 
@@ -246,6 +247,67 @@ class GroundedLLMGenerator:
 
         return s
 
+    def _generate_follow_up_questions(self, query: str, answer: str, chunks: List[ScoredChunk]) -> List[str]:
+        """Generates 2-3 contextual follow-up questions to deepen user inquiry."""
+        q_lower = query.lower()
+        ans_lower = answer.lower()
+        
+        # Domain topic matching
+        if "goa" in q_lower or "goa" in ans_lower:
+            candidates = [
+                "Where is Goa located geographically?",
+                "What cultural traditions and festivals is Goa known for?",
+                "How does tourism and industry drive the economy of Goa?"
+            ]
+            return [c for c in candidates if c.lower() not in q_lower][:3]
+            
+        elif "msmarco" in q_lower or "msmarco" in ans_lower or "dataset" in q_lower:
+            candidates = [
+                "How many passages are indexed in the MSMARCO-XI dataset?",
+                "What metrics evaluate retrieval accuracy on MSMARCO-XI?",
+                "How does hybrid dense and lexical search improve recall on MSMARCO?"
+            ]
+            return [c for c in candidates if c.lower() not in q_lower][:3]
+            
+        elif "faiss" in q_lower or "bm25" in q_lower or "hnsw" in q_lower or "index" in q_lower:
+            candidates = [
+                "What is the difference between HNSW and Flat IP in FAISS?",
+                "How does Reciprocal Rank Fusion combine vector and BM25 scores?",
+                "How fast is FAISS retrieval under 100k passages?"
+            ]
+            return [c for c in candidates if c.lower() not in q_lower][:3]
+            
+        elif "july" in q_lower or "voice" in q_lower or "rag" in q_lower or "sarvam" in q_lower:
+            candidates = [
+                "How does July achieve sub-200ms voice response times?",
+                "What chunking strategy does July use for source documents?",
+                "How do guardrails detect and redact personal data (PII)?"
+            ]
+            return [c for c in candidates if c.lower() not in q_lower][:3]
+            
+        elif "pli" in q_lower or "scheme" in q_lower or "manufacturing" in q_lower:
+            candidates = [
+                "Which sectors are eligible under the PLI scheme?",
+                "What financial incentives are provided under the PLI policy?",
+                "How does the PLI scheme boost domestic exports?"
+            ]
+            return [c for c in candidates if c.lower() not in q_lower][:3]
+
+        # General entity fallback
+        entity = self._extract_subject_entity(query)
+        if entity and len(entity) > 2:
+            return [
+                f"What are the main components and features of {entity}?",
+                f"How does {entity} compare to traditional solutions?",
+                f"Can you explain the key benefits of {entity} in detail?"
+            ]
+            
+        return [
+            "Can you explain more details about this topic?",
+            "What are the primary use cases and benefits?",
+            "How does this system compare to alternative approaches?"
+        ]
+
     def _synthesize_smart_local(self, query: str, chunks: List[ScoredChunk]) -> GroundedResponseSchema:
         """
         High-Intelligence Intent-Aware Local Synthesizer.
@@ -391,12 +453,14 @@ class GroundedLLMGenerator:
 
         citations = [sc.chunk.chunk_id for sc in chunks[:3]]
         gen_ms = (time.perf_counter() - start) * 1000
+        follow_ups = self._generate_follow_up_questions(query, final_answer, chunks)
 
         return GroundedResponseSchema(
             answer=final_answer,
             supported=True,
             confidence=round(confidence, 2),
             citations=citations,
+            follow_up_questions=follow_ups,
             generation_ms=round(gen_ms, 2),
             provider="grounded_local"
         )
@@ -467,12 +531,14 @@ class GroundedLLMGenerator:
             gen_ms = (time.perf_counter() - start) * 1000
 
             is_abstention = "couldn't find" in answer_text.lower() or "not enough" in answer_text.lower()
+            follow_ups = self._generate_follow_up_questions(query, answer_text, chunks) if not is_abstention else []
 
             return GroundedResponseSchema(
                 answer=answer_text,
                 supported=not is_abstention,
                 confidence=0.98 if not is_abstention else 0.0,
                 citations=citations if not is_abstention else [],
+                follow_up_questions=follow_ups,
                 generation_ms=round(gen_ms, 2),
                 provider=f"gemini ({self.gemini_model})"
             )
@@ -523,12 +589,14 @@ class GroundedLLMGenerator:
             answer_text = data["choices"][0]["message"]["content"].strip()
             gen_ms = (time.perf_counter() - start) * 1000
             is_abstention = "couldn't find" in answer_text.lower()
+            follow_ups = self._generate_follow_up_questions(query, answer_text, chunks) if not is_abstention else []
 
             return GroundedResponseSchema(
                 answer=answer_text,
                 supported=not is_abstention,
                 confidence=0.97 if not is_abstention else 0.0,
                 citations=citations if not is_abstention else [],
+                follow_up_questions=follow_ups,
                 generation_ms=round(gen_ms, 2),
                 provider=f"openai ({self.openai_model})"
             )

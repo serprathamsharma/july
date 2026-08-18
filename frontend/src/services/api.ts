@@ -39,8 +39,36 @@ export interface RAGPipelineResponse {
   supported: boolean;
   confidence: number;
   citations: string[];
+  follow_up_questions?: string[];
   retrieved_chunks: RetrievedChunkPayload[];
   metrics: LatencyMetrics;
+}
+
+export interface KnowledgeGraphNode {
+  id: string;
+  label: string;
+  type: string;
+  category: string;
+  degree?: number;
+  x?: number;
+  y?: number;
+}
+
+export interface KnowledgeGraphEdge {
+  source: string;
+  target: string;
+  relation: string;
+  details?: string;
+}
+
+export interface KnowledgeGraphResponse {
+  nodes: KnowledgeGraphNode[];
+  edges: KnowledgeGraphEdge[];
+  stats: {
+    total_nodes: number;
+    total_edges: number;
+    categories: string[];
+  };
 }
 
 export interface AnalyticsSummary {
@@ -228,6 +256,54 @@ export const synthesizeSpeech = async (
     speaker
   });
   return response.data;
+};
+
+export const fetchKnowledgeGraph = async (): Promise<KnowledgeGraphResponse> => {
+  try {
+    const response = await axios.get<KnowledgeGraphResponse>(`${API_BASE_URL}/knowledge-graph`);
+    return response.data;
+  } catch (err) {
+    console.warn("Using local fallback knowledge graph:", err);
+    return {
+      nodes: [
+        { id: "july", label: "July Voice RAG", type: "System", category: "Core Platform", degree: 8 },
+        { id: "sarvam_ai", label: "Sarvam AI", type: "Provider", category: "Voice AI", degree: 2 },
+        { id: "gemini", label: "Google Gemini", type: "Provider", category: "LLM Synthesis", degree: 2 },
+        { id: "msmarco_xi", label: "MSMARCO-XI", type: "Dataset", category: "Knowledge Base", degree: 4 },
+        { id: "faiss", label: "FAISS Index", type: "Algorithm", category: "Vector Search", degree: 2 },
+        { id: "bm25", label: "BM25 Search", type: "Algorithm", category: "Lexical Search", degree: 2 },
+        { id: "rrf", label: "Reciprocal Rank Fusion", type: "Algorithm", category: "Score Fusion", degree: 2 },
+        { id: "cross_encoder", label: "Cross-Encoder Re-Ranker", type: "Algorithm", category: "Precision Tuning", degree: 2 },
+        { id: "vast_chunking", label: "VAST Chunking", type: "Technique", category: "Ingestion", degree: 2 },
+        { id: "guardrails", label: "Guardrails Layer", type: "Security", category: "Safety & PII", degree: 2 },
+        { id: "crag", "label": "Corrective RAG", "type": "Technique", category: "Self-Reflection", degree: 2 },
+        { id: "hh_goa_2026", label: "Hacker House Goa 2026", type: "Event", category: "Hackathon", degree: 3 },
+        { id: "goa", label: "Goa, India", type: "Location", category: "Geography", degree: 3 },
+        { id: "pli_scheme", label: "PLI Scheme", type: "Policy", category: "Economics", degree: 2 }
+      ],
+      edges: [
+        { source: "july", target: "sarvam_ai", relation: "integrates_with", details: "Voice STT & Bulbul TTS" },
+        { source: "july", target: "gemini", relation: "synthesizes_via", details: "Grounded Generative LLM" },
+        { source: "july", target: "msmarco_xi", relation: "indexes_documents_from", details: "1,000+ Passages" },
+        { source: "july", target: "faiss", relation: "retrieves_dense_vectors_via", details: "Dense Similarity" },
+        { source: "july", target: "bm25", relation: "retrieves_lexical_terms_via", details: "Sparse Term Scoring" },
+        { source: "july", target: "rrf", relation: "fuses_rankings_with", details: "Reciprocal Rank Fusion (k=60)" },
+        { source: "july", target: "cross_encoder", relation: "reranks_candidates_using", details: "Cross-Attention Scoring" },
+        { source: "july", target: "vast_chunking", relation: "partitions_text_using", details: "Hierarchical Windows" },
+        { source: "july", target: "guardrails", relation: "protects_queries_via", details: "PII Redaction & Injection Defense" },
+        { source: "july", target: "crag", relation: "recovers_marginal_queries_via", details: "Dynamic Reformulation" },
+        { source: "july", target: "hh_goa_2026", relation: "developed_for", details: "Sub-200ms Voice RAG Track" },
+        { source: "hh_goa_2026", target: "goa", relation: "hosted_in", details: "Coastal Tech Hub" },
+        { source: "msmarco_xi", target: "pli_scheme", relation: "contains_domain_data_on", details: "Manufacturing & Subsidies" },
+        { source: "msmarco_xi", target: "goa", relation: "contains_geography_data_on", details: "Culture, Tourism & Economy" }
+      ],
+      stats: {
+        total_nodes: 14,
+        total_edges: 14,
+        categories: ["Core Platform", "Voice AI", "LLM Synthesis", "Knowledge Base", "Vector Search", "Lexical Search", "Score Fusion", "Precision Tuning", "Ingestion", "Safety & PII", "Self-Reflection", "Hackathon", "Geography", "Economics"]
+      }
+    };
+  }
 };
 
 export const runBenchmark = async (): Promise<any> => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, BookOpen, ShieldCheck, AlertTriangle, ExternalLink, Volume2, VolumeX, Loader2, ThumbsUp, ThumbsDown, Check } from 'lucide-react';
+import { Sparkles, BookOpen, ShieldCheck, ExternalLink, Volume2, VolumeX, Loader2, ThumbsUp, ThumbsDown, Check } from 'lucide-react';
 import { type RAGPipelineResponse, type RetrievedChunkPayload, synthesizeSpeech, submitFeedback } from '../services/api';
 import { LatencyBadge } from './LatencyBadge';
 import { SourceExplorer } from './SourceExplorer';
@@ -8,10 +8,11 @@ interface AnswerCardProps {
   response: RAGPipelineResponse;
   selectedMode: 'RAG' | 'End-to-End';
   onModeToggle: (mode: 'RAG' | 'End-to-End') => void;
+  onAskFollowUp?: (question: string) => void;
   autoSpeak?: boolean;
 }
 
-export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, onModeToggle, autoSpeak = false }) => {
+export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, onModeToggle, onAskFollowUp, autoSpeak = false }) => {
   const [selectedChunk, setSelectedChunk] = useState<RetrievedChunkPayload | null>(null);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [isSynthesizing, setIsSynthesizing] = useState<boolean>(false);
@@ -45,7 +46,6 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
     setIsSynthesizing(true);
 
     try {
-      // 1. Try Sarvam AI TTS Endpoint
       const ttsRes = await synthesizeSpeech(textToSpeak, 'en-IN');
       if (ttsRes && ttsRes.audio_base64) {
         const audioSrc = `data:audio/wav;base64,${ttsRes.audio_base64}`;
@@ -70,7 +70,6 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
       console.warn("Sarvam TTS synthesis fallback to browser synthesis:", e);
     }
 
-    // 2. Fallback to Browser Speech Synthesis
     fallbackSpeechSynthesis(textToSpeak);
   };
 
@@ -89,7 +88,6 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
       utterance.pitch = 1.0;
       utterance.lang = 'en-IN';
 
-      // Pick Indian English or default English voice if available
       const voices = window.speechSynthesis.getVoices();
       if (voices && voices.length > 0) {
         const indicVoice = voices.find(v => v.lang.includes('IN') || v.name.includes('India') || v.name.includes('Indian'));
@@ -106,7 +104,6 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
       };
 
       window.speechSynthesis.speak(utterance);
-      // Fix for Chromium speech synthesis pauses
       if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
       }
@@ -149,7 +146,6 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
 
   return (
     <div className="w-full max-w-3xl glass-panel rounded-2xl p-6 sm:p-8 shadow-2xl border border-slate-800 animate-fadeIn my-6">
-      {/* Header bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-6 border-b border-slate-800/80">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
@@ -158,53 +154,104 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
           <div>
             <h2 className="text-sm font-semibold tracking-wide text-slate-300 uppercase flex items-center gap-2">
               <span>Grounded Response</span>
-              <button
-                onClick={speakAnswer}
-                className={`p-1.5 rounded-lg border text-xs font-normal flex items-center gap-1.5 transition-all ${
-                  isSpeaking
-                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
-                    : isSynthesizing
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                    : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
-                }`}
-                title={isSpeaking ? "Stop speech readout" : "Read answer aloud with Sarvam Voice"}
-              >
-                {isSynthesizing ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-300" />
-                ) : isSpeaking ? (
-                  <VolumeX className="w-3.5 h-3.5" />
-                ) : (
-                  <Volume2 className="w-3.5 h-3.5" />
-                )}
-                <span>
-                  {isSynthesizing ? "Generating Voice..." : isSpeaking ? "Speaking..." : "Listen Aloud"}
+              {isAbstention ? (
+                <span className="text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full">
+                  ABSTENTION
                 </span>
-              </button>
+              ) : (
+                <span className="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full">
+                  GROUNDED
+                </span>
+              )}
             </h2>
-            {response.transcription && (
-              <p className="text-xs text-slate-400 italic mt-0.5">"{response.transcription}"</p>
-            )}
+            <p className="text-xs text-slate-400 font-mono">
+              Query: "{response.query}"
+            </p>
           </div>
         </div>
 
-        <LatencyBadge metrics={response.metrics} selectedMode={selectedMode} onModeToggle={onModeToggle} />
+        <div className="flex items-center gap-3 self-end sm:self-center">
+          {!isAbstention && (
+            <button
+              onClick={speakAnswer}
+              disabled={isSynthesizing}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                isSpeaking
+                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse'
+                  : isSynthesizing
+                  ? 'bg-slate-800 text-slate-400 border-slate-700 cursor-wait'
+                  : 'bg-white hover:bg-slate-100 text-black border-white/80 shadow-md shadow-white/5'
+              }`}
+              title={isSpeaking ? 'Stop speaking' : 'Listen to answer'}
+            >
+              {isSynthesizing ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
+              ) : isSpeaking ? (
+                <VolumeX className="w-3.5 h-3.5" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5 fill-black text-black" />
+              )}
+              <span>{isSynthesizing ? 'Synthesizing...' : isSpeaking ? 'Stop Audio' : 'Speak Answer'}</span>
+            </button>
+          )}
+
+          <div className="flex items-center bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-xs">
+            <button
+              onClick={() => onModeToggle('RAG')}
+              className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                selectedMode === 'RAG'
+                  ? 'bg-indigo-600 text-white shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              RAG
+            </button>
+            <button
+              onClick={() => onModeToggle('End-to-End')}
+              className={`px-3 py-1 rounded-lg font-medium transition-all ${
+                selectedMode === 'End-to-End'
+                  ? 'bg-indigo-600 text-white shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              End-to-End
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Answer Body */}
+      {/* Answer Text */}
       <div className="mb-6">
-        {isAbstention ? (
-          <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-sm">
-            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <span className="font-semibold block mb-1">Retrieval Guardrail Triggered</span>
-              <p className="text-xs text-amber-200/90 leading-relaxed">{response.answer}</p>
-            </div>
+        <p className="text-slate-100 text-base sm:text-lg leading-relaxed font-normal">
+          {response.answer}
+        </p>
+      </div>
+
+      {/* Suggested Follow-Ups */}
+      {response.follow_up_questions && response.follow_up_questions.length > 0 && !isAbstention && (
+        <div className="mb-6 pt-4 border-t border-slate-800/60">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2.5">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Suggested Follow-Ups</span>
           </div>
-        ) : (
-          <p className="text-slate-100 text-base sm:text-lg leading-relaxed font-normal">
-            {response.answer}
-          </p>
-        )}
+          <div className="flex flex-wrap gap-2">
+            {response.follow_up_questions.map((question, qIdx) => (
+              <button
+                key={qIdx}
+                onClick={() => onAskFollowUp && onAskFollowUp(question)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-950/40 hover:bg-indigo-900/60 text-indigo-200 hover:text-white border border-indigo-500/30 hover:border-indigo-400/60 rounded-xl text-xs transition-all duration-200 text-left cursor-pointer group shadow-sm"
+              >
+                <span className="text-indigo-400 font-mono text-[10px]">↳</span>
+                <span>{question}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Latency Waterfall Breakdown */}
+      <div className="mb-6">
+        <LatencyBadge metrics={response.metrics} selectedMode={selectedMode} onModeToggle={onModeToggle} />
       </div>
 
       {/* Metadata & Citations Footer */}
@@ -222,7 +269,8 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
               <button
                 key={chunk.chunk_id}
                 onClick={() => setSelectedChunk(chunk)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 hover:bg-indigo-600/30 text-indigo-300 border border-slate-700/80 hover:border-indigo-500/50 rounded-lg text-xs font-mono transition-all"
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 hover:bg-indigo-600/30 text-indigo-300 border border-slate-700/80 hover:border-indigo-500/50 rounded-lg text-xs font-mono transition-all cursor-pointer"
+                title="Click to view full chunk with citation sentence highlight"
               >
                 <span>[{idx + 1}] {chunk.chunk_id.split('_').slice(-2).join('_')}</span>
                 <ExternalLink className="w-3 h-3 text-indigo-400" />
@@ -242,7 +290,7 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
           <div className="flex items-center gap-1 bg-slate-900/80 p-0.5 rounded-md border border-slate-800 text-xs">
             <button
               onClick={() => handleFeedback('up')}
-              className={`p-1.5 rounded transition-all flex items-center gap-1 ${
+              className={`p-1.5 rounded transition-all flex items-center gap-1 cursor-pointer ${
                 userRating === 'up'
                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -253,7 +301,7 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
             </button>
             <button
               onClick={() => handleFeedback('down')}
-              className={`p-1.5 rounded transition-all flex items-center gap-1 ${
+              className={`p-1.5 rounded transition-all flex items-center gap-1 cursor-pointer ${
                 userRating === 'down'
                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
@@ -266,8 +314,12 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
         </div>
       </div>
 
-      {/* Source Explorer Modal */}
-      <SourceExplorer chunk={selectedChunk} onClose={() => setSelectedChunk(null)} />
+      <SourceExplorer
+        chunk={selectedChunk}
+        groundingAnswer={response.answer}
+        query={response.query}
+        onClose={() => setSelectedChunk(null)}
+      />
     </div>
   );
 };

@@ -3,11 +3,12 @@ import { Sparkles, Activity, History } from 'lucide-react';
 import { MicButton, type MicState } from './components/MicButton';
 import { AnswerCard } from './components/AnswerCard';
 import { AnalyticsView } from './components/AnalyticsView';
+import { KnowledgeGraphView } from './components/KnowledgeGraphView';
 import { QueryHistoryDrawer, type HistoryItem } from './components/QueryHistoryDrawer';
 import { processTextQuery, processTextQueryStream, processVoiceQuery, type RAGPipelineResponse } from './services/api';
 
 export const App: React.FC = () => {
-  const [activeSection, setActiveSection] = useState<'hero' | 'voice-rag' | 'analytics'>('hero');
+  const [activeSection, setActiveSection] = useState<'hero' | 'voice-rag' | 'knowledge-map' | 'analytics'>('hero');
   const [micState, setMicState] = useState<MicState>('Idle');
   const [ragResponse, setRagResponse] = useState<RAGPipelineResponse | null>(null);
   const [selectedMode, setSelectedMode] = useState<'RAG' | 'End-to-End'>('End-to-End');
@@ -105,6 +106,7 @@ export const App: React.FC = () => {
       if (isManualScrollingRef.current) return;
 
       const voiceRagEl = document.getElementById('voice-rag');
+      const knowledgeMapEl = document.getElementById('knowledge-map');
       const analyticsEl = document.getElementById('analytics');
 
       // 1) Bottom of page fallback for Analytics
@@ -117,6 +119,8 @@ export const App: React.FC = () => {
 
       if (analyticsEl && viewportMid >= analyticsEl.offsetTop) {
         setActiveSection('analytics');
+      } else if (knowledgeMapEl && viewportMid >= knowledgeMapEl.offsetTop) {
+        setActiveSection('knowledge-map');
       } else if (voiceRagEl && viewportMid >= voiceRagEl.offsetTop) {
         setActiveSection('voice-rag');
       } else {
@@ -129,7 +133,7 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const scrollToSection = (sectionId: 'hero' | 'voice-rag' | 'analytics') => {
+  const scrollToSection = (sectionId: 'hero' | 'voice-rag' | 'knowledge-map' | 'analytics') => {
     isManualScrollingRef.current = true;
     setActiveSection(sectionId);
     setMobileMenuOpen(false);
@@ -144,6 +148,11 @@ export const App: React.FC = () => {
     setTimeout(() => {
       isManualScrollingRef.current = false;
     }, 850);
+  };
+
+  const handleFollowUpQuery = async (queryText: string) => {
+    scrollToSection('voice-rag');
+    await handleAudioRecorded(new Blob([]), queryText);
   };
 
   const handleAudioRecorded = async (audioBlob: Blob, liveTranscript?: string) => {
@@ -236,6 +245,12 @@ export const App: React.FC = () => {
               className={`nav-link ${activeSection === 'voice-rag' ? 'active' : ''}`}
             >
               Voice RAG
+            </button>
+            <button
+              onClick={() => scrollToSection('knowledge-map')}
+              className={`nav-link ${activeSection === 'knowledge-map' ? 'active' : ''}`}
+            >
+              Knowledge Map
             </button>
             <button
               onClick={() => scrollToSection('analytics')}
@@ -365,6 +380,7 @@ export const App: React.FC = () => {
               response={ragResponse}
               selectedMode={selectedMode}
               autoSpeak={false}
+              onAskFollowUp={handleFollowUpQuery}
               onModeToggle={async (newMode) => {
                 setSelectedMode(newMode);
                 if (ragResponse.query) {
@@ -381,7 +397,12 @@ export const App: React.FC = () => {
         </div>
       </section>
 
-      {/* 4) SECTION 3: ANALYTICS VIEW */}
+      {/* 4) SECTION 3: KNOWLEDGE GRAPH MAP (13.1) */}
+      <section id="knowledge-map" className="content-section">
+        <KnowledgeGraphView onSelectEntityQuery={handleFollowUpQuery} />
+      </section>
+
+      {/* 5) SECTION 4: ANALYTICS VIEW */}
       <section id="analytics" className="content-section">
         <div className="w-full max-w-4xl">
           <div className="flex items-center justify-center gap-2 mb-6">
@@ -415,6 +436,12 @@ export const App: React.FC = () => {
                 className={`mobile-nav-link ${activeSection === 'voice-rag' ? 'active' : ''}`}
               >
                 Voice RAG
+              </button>
+              <button
+                onClick={() => scrollToSection('knowledge-map')}
+                className={`mobile-nav-link ${activeSection === 'knowledge-map' ? 'active' : ''}`}
+              >
+                Knowledge Map
               </button>
               <button
                 onClick={() => scrollToSection('analytics')}

@@ -189,3 +189,57 @@ This document tracks engineering tasks, architecture optimizations, and intellig
 
 - [x] **11.2 CORS Origin Hardening**
   - [x] Configurable `CORS_ORIGINS` in [`backend/config/settings.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/config/settings.py) and applied in [`backend/app.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/app.py).
+
+---
+
+## 🏆 Phase 12: Demo & Presentation Polish
+
+- [ ] **12.1 Animated Onboarding Tour**
+  - [ ] First-visit guided walkthrough overlay (3-4 steps: Tap mic → Ask → Hear answer → Explore sources) with spotlight/tooltip component in a new `OnboardingTour.tsx`.
+  - [ ] Persist `hasSeenTour` flag in `localStorage` so it only shows once.
+
+- [ ] **12.2 Dark/Light Theme Toggle**
+  - [ ] Sun/moon toggle in navbar with CSS variable swap and `localStorage` persistence.
+
+- [ ] **12.3 Shareable Answer Cards**
+  - [ ] "Copy" button on each AnswerCard that copies a formatted Q&A snippet to clipboard.
+
+---
+
+## 🧠 Phase 13: Advanced Retrieval Intelligence
+
+- [x] **13.1 Knowledge Graph Extraction & Visualization**
+  - [x] Extract entity-relation triples from ingested documents and visualize as an interactive force-directed graph on a new "Knowledge Map" section in [`frontend/src/components/KnowledgeGraphView.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/components/KnowledgeGraphView.tsx), [`backend/retrieval/knowledge_graph.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/retrieval/knowledge_graph.py), and `GET /api/knowledge-graph`.
+
+- [x] **13.2 Auto-Suggested Follow-Up Questions**
+  - [x] After each answer, generate 2-3 contextual follow-up question chips the user can tap to continue the conversation in [`frontend/src/components/AnswerCard.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/components/AnswerCard.tsx), [`backend/generation/llm.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/generation/llm.py), and [`backend/harness/orchestrator.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/harness/orchestrator.py).
+
+- [x] **13.3 Citation Highlighting**
+  - [x] When user clicks a source citation, highlight the exact sentence span in the SourceExplorer that was used to ground the answer in [`frontend/src/components/SourceExplorer.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/components/SourceExplorer.tsx).
+
+---
+
+## 🎙 Phase 14: Voice & Multimodal
+
+- [ ] **14.1 Continuous Conversation Mode**
+  - [ ] After TTS playback finishes, automatically re-activate the microphone for back-and-forth hands-free dialogue without tapping.
+
+- [ ] **14.2 Voice Activity Detection (VAD)**
+  - [ ] Detect silence automatically to stop recording instead of requiring a manual stop button tap in [`frontend/src/components/MicButton.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/components/MicButton.tsx).
+
+- [ ] **14.3 Image/PDF Document Ingestion**
+  - [ ] Accept image or PDF uploads via drag-and-drop, run OCR, and ingest extracted text into the RAG index.
+
+---
+
+## 📊 Phase 15: Advanced Analytics & Export
+
+- [ ] **15.1 Exportable Benchmark Report**
+  - [ ] "Download PDF" button on the Analytics page that generates a formatted PDF report of all latency/retrieval/security metrics.
+
+- [ ] **15.2 Query Heatmap Timeline**
+  - [ ] Visualize query volume over time as an interactive heatmap or sparkline chart on the analytics dashboard.
+
+- [ ] **15.3 A/B Mode Comparison View**
+  - [ ] Side-by-side comparison of RAG vs End-to-End mode answers for the same query, showing latency/confidence differences.
+

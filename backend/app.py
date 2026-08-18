@@ -221,6 +221,11 @@ async def get_source_detail(chunk_id: str):
         "parent_document": match.parent_document
     }
 
+@app.get("/api/knowledge-graph")
+async def get_knowledge_graph():
+    from backend.retrieval.knowledge_graph import knowledge_graph
+    return knowledge_graph.get_graph()
+
 @app.post("/api/benchmark/run")
 async def trigger_benchmark(background_tasks: BackgroundTasks):
     from evaluation.benchmark import run_benchmark_suite

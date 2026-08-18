@@ -18,6 +18,7 @@ from backend.retrieval.reranker import CrossEncoderReranker
 from backend.generation.llm import GroundedLLMGenerator
 from backend.analytics.store import analytics_store
 from backend.cache.query_cache import query_cache
+from backend.retrieval.knowledge_graph import knowledge_graph
 import re
 
 class SessionContextManager:
@@ -58,25 +59,19 @@ class SessionContextManager:
         has_pronoun = any(re.search(pat, query, re.IGNORECASE) for pat in pronoun_patterns)
         
         if has_pronoun:
-            # 1. Look for acronym or domain entity in previous turn (excluding question words)
-            stop_entities = {"what", "how", "why", "where", "when", "which", "who", "tell", "explain", "describe", "can", "could", "is", "are", "the"}
-            candidates = re.findall(r'\b([A-Z]{2,}(?:-[A-Z0-9]+)?|[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b', last_query)
-            valid_candidates = [c for c in candidates if c.lower() not in stop_entities]
-            
-            subject = valid_candidates[0] if valid_candidates else ""
-            if not subject:
-                m = re.search(r'\b(?:what is|how does|tell me about|explain|describe)\s+([a-zA-Z0-9_\-]+)\b', last_query, re.IGNORECASE)
-                if m and m.group(1).lower() not in stop_entities:
-                    subject = m.group(1).upper()
-            
-            if subject:
-                rewritten = re.sub(
-                    r'\b(it|its|they|them|their|this|that|the tool|the framework|the dataset|the library|the scheme)\b',
-                    subject,
-                    query,
-                    flags=re.IGNORECASE
-                )
-                print(f"[SessionContextManager] Contextualized follow-up: '{query}' -> '{rewritten}'")
+            extracted_entity = None
+            # Look for entity keywords from last turn
+            entity_matches = re.findall(r'\b([A-Z][a-zA-Z0-9_\-]+(?:\s+[A-Z][a-zA-Z0-9_\-]+)*)\b', last_query)
+            if entity_matches:
+                extracted_entity = entity_matches[0]
+            else:
+                words = [w for w in re.findall(r'[a-zA-Z0-9_\-]+', last_query) if w.lower() not in {"what", "is", "how", "does", "where", "why", "who", "tell", "me", "about", "the", "a", "an"}]
+                if words:
+                    extracted_entity = words[0]
+
+            if extracted_entity:
+                rewritten = re.sub(r'\b(it|its|they|them|their|this|that|the tool|the framework|the dataset|the library|the scheme)\b', extracted_entity, query, count=1, flags=re.IGNORECASE)
+                print(f"[Multi-Turn Context] Contextualized '{query}' -> '{rewritten}' using entity '{extracted_entity}'")
                 return rewritten
 
         return query
@@ -89,6 +84,7 @@ class RAGPipelineResponse(BaseModel):
     supported: bool
     confidence: float
     citations: List[str]
+    follow_up_questions: List[str] = []
     retrieved_chunks: List[Dict[str, Any]]
     metrics: LatencyMetrics
     provider: str = "grounded_local"
@@ -145,7 +141,10 @@ class RAGOrchestrator:
         # 5. Clear query cache so new knowledge takes effect immediately
         query_cache.clear()
 
-        # 6. Update analytics store
+        # 6. Extract and update Knowledge Graph triples
+        knowledge_graph.extract_and_ingest_triples(document_id, text)
+
+        # 7. Update analytics store
         analytics_store.indexed_documents = len(set(c.document_id for c in self.faiss_index.chunks))
         analytics_store.indexed_chunks = len(self.faiss_index.chunks)
 
@@ -385,6 +384,7 @@ class RAGOrchestrator:
             supported=llm_resp.supported,
             confidence=round(llm_resp.confidence, 3),
             citations=llm_resp.citations,
+            follow_up_questions=llm_resp.follow_up_questions if llm_resp else [],
             retrieved_chunks=chunks_payload,
             metrics=final_metrics,
             provider=llm_resp.provider,
@@ -624,6 +624,7 @@ class RAGOrchestrator:
             supported=llm_resp.supported if llm_resp else False,
             confidence=round(llm_resp.confidence, 3) if llm_resp else 0.0,
             citations=llm_resp.citations if llm_resp else [],
+            follow_up_questions=llm_resp.follow_up_questions if llm_resp else [],
             retrieved_chunks=chunks_payload,
             metrics=final_metrics,
             provider=llm_resp.provider if llm_resp else "grounded_local",
