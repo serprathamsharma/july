@@ -224,8 +224,8 @@ This document tracks engineering tasks, architecture optimizations, and intellig
 - [ ] **14.1 Continuous Conversation Mode**
   - [ ] After TTS playback finishes, automatically re-activate the microphone for back-and-forth hands-free dialogue without tapping.
 
-- [ ] **14.2 Voice Activity Detection (VAD)**
-  - [ ] Detect silence automatically to stop recording instead of requiring a manual stop button tap in [`frontend/src/components/MicButton.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/components/MicButton.tsx).
+- [x] **14.2 Voice Activity Detection (VAD)**
+  - [x] Detect silence automatically to stop recording instead of requiring a manual stop button tap in [`frontend/src/components/MicButton.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/components/MicButton.tsx).
 
 - [ ] **14.3 Image/PDF Document Ingestion**
   - [ ] Accept image or PDF uploads via drag-and-drop, run OCR, and ingest extracted text into the RAG index.

@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Mic, Square, Loader2, Volume2, AlertCircle, Sparkles } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Mic, Square, Loader2, Volume2, AlertCircle, Sparkles, Zap, Radio } from 'lucide-react';
 import { WaveformVisualizer } from './WaveformVisualizer';
 import { normalizeVoiceQuery } from '../utils/voiceNormalizer';
 
@@ -21,9 +21,119 @@ export const MicButton: React.FC<MicButtonProps> = ({
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [activeStream, setActiveStream] = useState<MediaStream | null>(null);
   const [liveTranscript, setLiveTranscript] = useState<string>('');
+  const [vadEnabled, setVadEnabled] = useState<boolean>(true);
+  const [isVoiceActive, setIsVoiceActive] = useState<boolean>(false);
+  const [silenceCountdown, setSilenceCountdown] = useState<number | null>(null);
+
   const liveTranscriptRef = useRef<string>('');
   const recognitionRef = useRef<any>(null);
   const audioChunks = useRef<Blob[]>([]);
+  const vadIntervalRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const hasSpokenRef = useRef<boolean>(false);
+  const lastSpeechTimeRef = useRef<number>(Date.now());
+  const recordingStartTimeRef = useRef<number>(Date.now());
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopVadMonitoring();
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        try {
+          audioContextRef.current.close();
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+    };
+  }, []);
+
+  const stopVadMonitoring = () => {
+    if (vadIntervalRef.current) {
+      window.clearInterval(vadIntervalRef.current);
+      vadIntervalRef.current = null;
+    }
+    setIsVoiceActive(false);
+    setSilenceCountdown(null);
+  };
+
+  const startVadMonitoring = (stream: MediaStream) => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const audioCtx = new AudioCtx();
+      audioContextRef.current = audioCtx;
+
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.5;
+      analyserRef.current = analyser;
+
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      hasSpokenRef.current = false;
+      lastSpeechTimeRef.current = Date.now();
+      recordingStartTimeRef.current = Date.now();
+
+      const SILENCE_TIMEOUT_MS = 1600; // 1.6 seconds of silence after speech stops
+      const INITIAL_MAX_SILENCE_MS = 7500; // 7.5 seconds initial silence timeout
+      const SPEECH_ENERGY_THRESHOLD = 22; // RMS audio frequency threshold
+
+      vadIntervalRef.current = window.setInterval(() => {
+        if (!analyserRef.current) return;
+
+        analyserRef.current.getByteFrequencyData(dataArray);
+
+        // Compute average frequency energy
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const avgEnergy = sum / bufferLength;
+        const now = Date.now();
+
+        // Check if user is actively speaking (either via audio energy or non-empty transcript)
+        const isSpeaking = avgEnergy > SPEECH_ENERGY_THRESHOLD || liveTranscriptRef.current.length > 2;
+
+        if (isSpeaking) {
+          hasSpokenRef.current = true;
+          lastSpeechTimeRef.current = now;
+          setIsVoiceActive(true);
+          setSilenceCountdown(null);
+        } else {
+          setIsVoiceActive(false);
+
+          if (!vadEnabled) return;
+
+          // If speech was previously detected, check silence duration
+          if (hasSpokenRef.current) {
+            const silentDuration = now - lastSpeechTimeRef.current;
+            const remainingMs = SILENCE_TIMEOUT_MS - silentDuration;
+
+            if (remainingMs > 0 && remainingMs <= 1200) {
+              setSilenceCountdown(Math.ceil(remainingMs / 1000));
+            } else if (silentDuration >= SILENCE_TIMEOUT_MS) {
+              // Silence threshold reached -> Auto-Stop!
+              stopVadMonitoring();
+              stopRecording();
+            }
+          } else {
+            // Initial silence timeout if user never spoke
+            if (now - recordingStartTimeRef.current >= INITIAL_MAX_SILENCE_MS) {
+              stopVadMonitoring();
+              stopRecording();
+            }
+          }
+        }
+      }, 100);
+    } catch (err) {
+      console.warn("VAD monitoring initialization error:", err);
+    }
+  };
 
   const startRecording = async () => {
     try {
@@ -47,6 +157,9 @@ export const MicButton: React.FC<MicButtonProps> = ({
           const normalized = normalizeVoiceQuery(rawTranscript);
           setLiveTranscript(normalized);
           liveTranscriptRef.current = normalized;
+          hasSpokenRef.current = true;
+          lastSpeechTimeRef.current = Date.now();
+
           if (onLiveTranscriptChange) {
             onLiveTranscriptChange(normalized);
           }
@@ -83,6 +196,9 @@ export const MicButton: React.FC<MicButtonProps> = ({
       recorder.start();
       setMediaRecorder(recorder);
       onStateChange('Listening');
+
+      // Start VAD monitoring
+      startVadMonitoring(stream);
     } catch (err) {
       console.error('Microphone access error:', err);
       onStateChange('Error');
@@ -90,7 +206,9 @@ export const MicButton: React.FC<MicButtonProps> = ({
   };
 
   const stopRecording = () => {
+    stopVadMonitoring();
     onStateChange('Processing');
+
     setTimeout(() => {
       if (recognitionRef.current) {
         try {
@@ -148,12 +266,44 @@ export const MicButton: React.FC<MicButtonProps> = ({
         )}
       </button>
 
-      {/* Live Audio Waveform Bars */}
+      {/* Live Audio Waveform Bars & VAD Status */}
       {state === 'Listening' && (
-        <div className="flex items-center gap-3 mt-6 px-5 py-2.5 rounded-full glass-card border border-rose-500/30 shadow-lg shadow-rose-950/20">
-          <Volume2 className="w-4 h-4 text-rose-400 animate-pulse flex-shrink-0" />
-          <WaveformVisualizer stream={activeStream} isRecording={state === 'Listening'} />
-          <span className="text-xs font-mono text-rose-300 font-medium">Listening...</span>
+        <div className="flex flex-col items-center gap-2 mt-6">
+          <div className="flex items-center gap-3 px-5 py-2.5 rounded-full glass-card border border-rose-500/30 shadow-lg shadow-rose-950/20">
+            <Volume2 className={`w-4 h-4 flex-shrink-0 transition-colors ${isVoiceActive ? 'text-emerald-400 animate-pulse' : 'text-rose-400'}`} />
+            <WaveformVisualizer stream={activeStream} isRecording={state === 'Listening'} />
+            <span className="text-xs font-mono font-medium flex items-center gap-1.5">
+              {isVoiceActive ? (
+                <span className="text-emerald-300 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                  Speaking
+                </span>
+              ) : silenceCountdown !== null ? (
+                <span className="text-amber-300 flex items-center gap-1 font-mono text-[11px]">
+                  <Radio className="w-3 h-3 text-amber-400 animate-pulse" />
+                  Auto-stop in {silenceCountdown}s...
+                </span>
+              ) : (
+                <span className="text-rose-300">Listening...</span>
+              )}
+            </span>
+          </div>
+
+          {/* VAD Auto-Stop Mode Pill */}
+          <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400 mt-1">
+            <button
+              onClick={() => setVadEnabled(!vadEnabled)}
+              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                vadEnabled
+                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20'
+                  : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-white'
+              }`}
+              title="Toggle automatic silence detection"
+            >
+              <Zap className={`w-3 h-3 ${vadEnabled ? 'text-emerald-400' : 'text-slate-500'}`} />
+              <span>VAD Auto-Stop: {vadEnabled ? 'ON' : 'OFF'}</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -173,7 +323,7 @@ export const MicButton: React.FC<MicButtonProps> = ({
       {/* Status Label */}
       <div className="mt-8 text-center max-w-sm">
         <span className="text-xs sm:text-sm font-medium tracking-wider uppercase text-slate-400">
-          {state === 'Listening' && 'Tap the red button to finish speaking'}
+          {state === 'Listening' && (vadEnabled ? 'Speak naturally — will auto-submit when you pause' : 'Tap the red button to finish speaking')}
           {state === 'Processing' && 'STT Transcription in progress...'}
           {state === 'Generating' && 'Grounded RAG Retrieval & LLM Generation...'}
           {state === 'Idle' && 'Tap to ask anything via voice'}
