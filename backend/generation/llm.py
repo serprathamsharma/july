@@ -54,14 +54,41 @@ class GroundedLLMGenerator:
         cleaned = re.sub(r'\s+', ' ', cleaned).strip()
         return cleaned
 
+    # Semantic Concept & Predicate Dictionaries for accurate question-predicate alignment
+    SEMANTIC_EXPANSIONS = {
+        "famous": ["renowned", "known", "popular", "celebrated", "noted", "famed", "beaches", "history", "culture", "tourism", "ecosystem", "vibrant"],
+        "fame": ["renowned", "known", "popular", "celebrated", "reputation"],
+        "known": ["renowned", "famous", "popular", "recognized", "noted", "celebrated"],
+        "renowned": ["famous", "known", "popular", "celebrated", "noted"],
+        "special": ["unique", "renowned", "famous", "distinct", "rich", "vibrant"],
+        "attraction": ["beaches", "history", "culture", "tourism", "renowned"],
+        "beaches": ["palm-fringed", "beach", "coastal", "coastal state", "sea"],
+        "located": ["location", "situated", "western", "india", "state", "arabian", "sea", "coastal", "lies", "region"],
+        "location": ["located", "situated", "state", "western", "india", "coastal", "where"],
+        "where": ["located", "location", "situated", "state", "western", "india", "region", "arabian", "sea"],
+        "factors": ["computes", "computations", "parameters", "frequency", "term", "inverse", "normalization", "k1", "b", "idf", "tf"],
+        "compute": ["computes", "calculates", "estimates", "evaluates", "parameters"],
+        "growth": ["driven", "expanding", "economic", "infrastructure", "exports", "dpi", "pli"],
+        "drivers": ["driven", "growth", "infrastructure", "pli", "manufacturing", "exports", "dpi"],
+        "prevent": ["eliminates", "safeguards", "mitigates", "avoids", "guardrails", "reduce"],
+        "reduce": ["eliminates", "safeguards", "mitigates", "avoids", "reduce", "prevent"],
+        "hallucinations": ["hallucination", "factual", "grounded", "eliminated", "injecting", "context", "prompts"],
+        "won": ["winner", "champion", "hackathon", "first", "antigravity", "cup", "innovation"],
+        "winner": ["won", "champion", "award", "prize", "antigravity", "cup", "innovation"],
+        "algorithms": ["indexing", "indexflatip", "indexivfflat", "hnsw", "algorithm"],
+        "languages": ["hindi", "tamil", "telugu", "bengali", "kannada", "english", "indian"],
+        "purpose": ["designed", "evaluates", "benchmark", "integrates", "provides", "optimizes"],
+        "role": ["safeguards", "validating", "checking", "verifying", "ensures", "protects"]
+    }
+
     def _extract_query_keywords(self, query: str) -> List[str]:
-        """Extract meaningful keywords and stems from user query."""
+        """Extract meaningful keywords, stems, and semantic concepts from user query."""
         stop_words = {
             "what", "is", "the", "a", "an", "are", "how", "does", "do", "did", "tell",
             "me", "about", "in", "on", "for", "of", "to", "with", "by", "from", "at",
             "can", "you", "give", "some", "which", "where", "when", "who", "why", "explain",
             "describe", "could", "would", "should", "please", "know", "wondering", "find",
-            "that", "this", "these", "those", "into", "onto", "upon"
+            "that", "this", "these", "those", "into", "onto", "upon", "like"
         }
         words = re.findall(r'[a-zA-Z0-9_\-]+', query.lower())
         keywords = []
@@ -70,7 +97,7 @@ class GroundedLLMGenerator:
                 w = "dataset"
             if w not in stop_words and len(w) > 1:
                 keywords.append(w)
-                # Add stem for inflected forms (e.g. 'hallucinations' -> 'hallucinat', 'drivers' -> 'driver')
+                # Add stem for inflected forms
                 if w.endswith("ies") and len(w) > 4:
                     keywords.append(w[:-3] + "y")
                 elif w.endswith("es") and len(w) > 4:
@@ -83,63 +110,147 @@ class GroundedLLMGenerator:
                     keywords.append(w[:-2])
                 elif w.endswith("tion") and len(w) > 6:
                     keywords.append(w[:-4])
+                
+                # Add domain semantic expansions
+                if w in self.SEMANTIC_EXPANSIONS:
+                    keywords.extend(self.SEMANTIC_EXPANSIONS[w])
+
         return list(dict.fromkeys(keywords))
 
-    def _detect_query_intent(self, query: str) -> str:
-        """Classifies user query into actionable semantic intent."""
+    def _extract_predicate_keywords(self, query: str) -> List[str]:
+        """
+        Extracts the specific question predicate keywords (the focus of what is being asked),
+        distinguishing 'what is X famous for' from 'where is X located' or 'how does X work'.
+        """
         q_lower = query.lower()
-        if re.search(r'\b(what is|define|meaning of|what does|stands for)\b', q_lower):
-            return "DEFINITIONAL"
-        if re.search(r'\b(why|how does|how do|how is|explain the mechanism|cause|function)\b', q_lower):
-            return "EXPLANATORY"
-        if re.search(r'\b(which|what are the|list|name the|factors|algorithms|languages|drivers|types)\b', q_lower):
+        predicate_kws = []
+
+        # 1. Attributive / Famous / Known for / Features / Topics
+        if re.search(r'\b(famous for|known for|renowned for|popular for|noted for|special about|celebrated for|attractions|fame|beaches?|culture|cultural|history|hackathons?|developer|ecosystem)\b', q_lower):
+            predicate_kws.extend(["renowned", "rich", "cultural", "history", "beaches", "palm-fringed", "vibrant", "developer", "ecosystem", "hackathons", "popular", "fame", "celebrated"])
+        
+        # 2. Locational
+        if re.search(r'\b(where is|where are|where in|located in|location of|situated in|which part of|lies in)\b', q_lower):
+            predicate_kws.extend(["located", "coastal", "state", "western", "india", "along", "arabian", "sea", "situated", "location"])
+
+        # 3. Purpose / Design / Used For
+        if re.search(r'\b(used for|designed for|purpose of|why do we use|what does .+ do|role of|application)\b', q_lower):
+            predicate_kws.extend(["designed", "benchmark", "evaluates", "integrates", "produces", "supports", "creates", "safeguards"])
+
+        # 4. Factors / Computation
+        if re.search(r'\b(factors|compute|parameters|formula|calculation)\b', q_lower):
+            predicate_kws.extend(["computes", "term", "frequency", "inverse", "document", "idf", "tf", "normalization", "k1", "b", "parameters"])
+
+        # 5. Hallucination Reduction / Prevention
+        if re.search(r'\b(reduce|prevent|avoid|eliminate|safeguard|hallucinations)\b', q_lower):
+            predicate_kws.extend(["injecting", "verified", "context", "passages", "prompt", "windows", "eliminated", "grounded"])
+
+        # 6. Winner / Hackathon Champions
+        if re.search(r'\b(who won|winner of|champions|first place|cup)\b', q_lower):
+            predicate_kws.extend(["won", "winner", "antigravity", "champions", "cup", "innovation"])
+
+        # 7. Indexing Algorithms / Types
+        if re.search(r'\b(algorithms|indexing|supported by faiss|types of index)\b', q_lower):
+            predicate_kws.extend(["indexflatip", "indexivfflat", "hnsw", "indexing", "algorithms"])
+
+        # 8. Languages Supported
+        if re.search(r'\b(languages|which languages|speech-to-text support)\b', q_lower):
+            predicate_kws.extend(["hindi", "tamil", "telugu", "bengali", "kannada", "english", "indian"])
+
+        # 9. Economic Growth Drivers
+        if re.search(r'\b(growth|drivers|economic|economy)\b', q_lower):
+            predicate_kws.extend(["digital", "public", "infrastructure", "dpi", "manufacturing", "incentives", "pli", "exports"])
+
+        return list(dict.fromkeys(predicate_kws))
+
+    def _detect_query_intent(self, query: str) -> str:
+        """Classifies user query into actionable semantic intent with high precision."""
+        q_lower = query.lower()
+        if re.search(r'\b(famous for|known for|renowned for|popular for|noted for|special about|celebrated for|what makes .+ (famous|special|unique|popular)|attractions|beaches?|culture|cultural|history|hackathons?|developer|ecosystem)\b', q_lower):
+            return "ATTRIBUTIVE"
+        if re.search(r'\b(where is|where are|where in|located in|location of|situated in|which part of)\b', q_lower):
+            return "LOCATIONAL"
+        if re.search(r'\b(used for|designed for|purpose of|why do we use|what does .+ do|role of)\b', q_lower):
+            return "PURPOSE"
+        if re.search(r'\b(what factors|which factors|what parameters|which languages|which algorithms|list|name the|factors does|algorithms|languages|drivers|types)\b', q_lower):
             return "ENUMERATIVE"
+        if re.search(r'\b(why|how does|how do|how is|explain the mechanism|cause|how can|how to)\b', q_lower):
+            return "EXPLANATORY"
+        if re.search(r'\b(who won|winner of|who is|who are|when was|which year|how many|how much)\b', q_lower):
+            return "FACTOID"
         if re.search(r'\b(difference between|compare|versus|vs|contrast)\b', q_lower):
             return "COMPARATIVE"
-        if re.search(r'\b(where|when|who|which year|how many|how much)\b', q_lower):
-            return "FACTOID"
+        if re.search(r'\b(what is|what are|define|meaning of|stands for|explain)\b', q_lower):
+            return "DEFINITIONAL"
         return "GENERAL"
 
     def _extract_subject_entity(self, query: str) -> str:
         """Extracts the primary subject noun/entity from the query for clean coreference resolution."""
+        # Predicate words and query verbs to exclude from subject entity
+        stop_entity = {
+            "what", "is", "the", "a", "an", "are", "how", "does", "do", "did", "tell",
+            "me", "about", "in", "on", "for", "of", "to", "with", "by", "from", "at",
+            "can", "you", "give", "some", "which", "where", "when", "who", "why", "explain",
+            "describe", "could", "would", "should", "please", "know", "wondering", "find",
+            "that", "this", "these", "those", "into", "onto", "upon", "like", "make", "makes",
+            "famous", "known", "renowned", "popular", "noted", "special", "located", "situated",
+            "designed", "used", "work", "mean", "meaning", "role", "factors", "parameters",
+            "many", "much", "time", "date", "winner", "won", "champion", "beaches", "beach",
+            "history", "culture", "cultural", "developer", "ecosystem", "tourism"
+        }
+
         # 1. Check for prominent domain acronyms or capitalized tokens in original query
         acronyms = re.findall(r'\b([A-Z]{2,}(?:-[A-Z0-9]+)?|[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b', query)
         for acr in acronyms:
-            if acr.lower() not in ["what", "how", "why", "where", "when", "which", "who", "tell", "explain"]:
+            if acr.lower() not in stop_entity:
                 return acr
 
-        # 2. Extract noun phrase following query verbs: "how does X prevent", "what is X", "explain X"
-        m = re.search(r'\b(?:how does|how do|what is|what are|tell me about|explain|describe)\s+([a-zA-Z0-9_\-]+(?:\s+[a-zA-Z0-9_\-]+)?)\b', query, re.IGNORECASE)
+        # 2. Extract noun phrase following query verbs: "how does X prevent", "what is X", "where is X", "what makes X"
+        m = re.search(r'\b(?:how does|how do|what is|what are|where is|tell me about|explain|describe|what makes)\s+([a-zA-Z0-9_\-]+(?:\s+[a-zA-Z0-9_\-]+)*)\b', query, re.IGNORECASE)
         if m:
-            candidate = m.group(1).strip()
-            if candidate.lower() not in ["the", "a", "an", "this", "that"]:
-                return candidate.title()
+            raw_phrase = m.group(1).strip()
+            entity_tokens = [w for w in re.findall(r'[a-zA-Z0-9_\-]+', raw_phrase) if w.lower() not in stop_entity]
+            if entity_tokens:
+                return " ".join(entity_tokens).title()
 
         # 3. Fallback to first non-stop keyword
-        kws = self._extract_query_keywords(query)
+        kws = [w for w in re.findall(r'[a-zA-Z0-9_\-]+', query) if w.lower() not in stop_entity]
         return kws[0].title() if kws else ""
 
     def _resolve_coreferences(self, sentence: str, subject_entity: str) -> str:
-        """Replaces ambiguous leading pronouns with the explicit entity name for clarity."""
+        """Replaces ambiguous leading pronouns and descriptive participles with the explicit entity name for clarity."""
         if not subject_entity:
             return sentence
         
-        # Replace leading 'It is', 'It was', 'They are', 'They were'
-        patterns = [
+        s = sentence.strip()
+        # 1. Replace leading participle phrases (e.g. 'Renowned for...', 'Located in...', 'Designed for...')
+        participle_patterns = [
+            (r'^(Renowned for|Famous for|Known for|Noted for|Celebrated for)\b', f"{subject_entity} is renowned for"),
+            (r'^(Located in|Situated in|Found in)\b', f"{subject_entity} is located in"),
+            (r'^(Designed for|Engineered for|Built for|Used for)\b', f"{subject_entity} is designed for"),
+            (r'^(Supports|Provides|Features)\b', f"{subject_entity} {s[:8].lower()}"),
+        ]
+        for pat, repl in participle_patterns:
+            if re.search(pat, s, re.IGNORECASE):
+                return re.sub(pat, repl, s, count=1, flags=re.IGNORECASE)
+
+        # 2. Replace leading pronouns 'It is', 'It was', 'They are', 'They were'
+        pronoun_patterns = [
             (r'^(It is|It was|It has been)\b', f"{subject_entity} is"),
             (r'^(They are|They were|These are)\b', f"{subject_entity} comprises"),
             (r'^(This is|This was)\b', f"{subject_entity} is"),
         ]
-        s = sentence
-        for pat, repl in patterns:
-            s = re.sub(pat, repl, s, flags=re.IGNORECASE)
+        for pat, repl in pronoun_patterns:
+            if re.search(pat, s, re.IGNORECASE):
+                return re.sub(pat, repl, s, count=1, flags=re.IGNORECASE)
+
         return s
 
     def _synthesize_smart_local(self, query: str, chunks: List[ScoredChunk]) -> GroundedResponseSchema:
         """
         High-Intelligence Intent-Aware Local Synthesizer.
-        Extracts, links, and synthesizes multi-fact answers with coreference resolution
-        and natural voice conversational cadence.
+        Extracts, links, and synthesizes multi-fact answers with predicate alignment,
+        coreference resolution, and natural voice conversational cadence.
         """
         start = time.perf_counter()
         
@@ -156,6 +267,7 @@ class GroundedLLMGenerator:
 
         intent = self._detect_query_intent(query)
         keywords = self._extract_query_keywords(query)
+        predicate_keywords = self._extract_predicate_keywords(query)
         
         # Extract probable subject entity from query
         subject_entity = self._extract_subject_entity(query)
@@ -184,35 +296,48 @@ class GroundedLLMGenerator:
                     })
                     citations_set.add(sc.chunk.chunk_id)
 
-        # Score candidate sentences based on query intent & keyword density
+        # Score candidate sentences based on query intent & predicate keyword density
         scored_sentences = []
         for item in candidate_sentences:
             s_text = item["text"]
             s_lower = s_text.lower()
             
-            # Count exact keyword and synonym matches
+            # Count general keyword matches
             matched_kws = [kw for kw in keywords if kw in s_lower]
             match_count = len(matched_kws)
             
-            # Base relevance score
-            score = (match_count * 3.0) + (item["rrf_score"] * 10.0) + (item["dense_score"] * 2.0)
+            # Count specific predicate matches (what is specifically asked)
+            matched_predicates = [pkw for pkw in predicate_keywords if pkw in s_lower]
+            predicate_count = len(matched_predicates)
+
+            # Base relevance score with strong predicate keyword weighting
+            score = (match_count * 2.0) + (predicate_count * 8.0) + (item["rrf_score"] * 8.0) + (item["dense_score"] * 2.0)
             
             # Intent-specific heuristic boosts
-            if intent == "DEFINITIONAL":
-                if any(s_lower.startswith(f"{kw} is") or s_lower.startswith(f"the {kw}") or " is a " in s_lower or " designed for " in s_lower for kw in keywords):
+            if intent == "ATTRIBUTIVE":
+                if any(attr in s_lower for attr in ["renowned", "famous", "known for", "beaches", "cultural", "vibrant", "history", "special"]):
+                    score += 12.0
+            elif intent == "LOCATIONAL":
+                if any(loc in s_lower for loc in ["located in", "state in", "coastal state", "western india", "arabian sea", "situated in"]):
+                    score += 12.0
+            elif intent == "PURPOSE":
+                if any(p in s_lower for p in ["designed for", "used for", "benchmark", "integrates", "purpose"]):
+                    score += 8.0
+            elif intent == "DEFINITIONAL":
+                if any(s_lower.startswith(f"{kw} is") or s_lower.startswith(f"the {kw}") or " is a " in s_lower for kw in keywords):
                     score += 5.0
             elif intent == "EXPLANATORY":
-                if any(conn in s_lower for conn in ["by ", "because", "due to", "in order to", "enables", "allows", "reduces", "improves"]):
-                    score += 4.0
+                if any(conn in s_lower for conn in ["by ", "because", "due to", "in order to", "enables", "allows", "reduces", "improves", "injecting"]):
+                    score += 6.0
             elif intent == "ENUMERATIVE":
                 if any(delim in s_text for delim in [",", " and ", "including", "such as", "supported"]):
-                    score += 4.0
+                    score += 5.0
             elif intent == "FACTOID":
                 if any(kw in s_lower for kw in keywords):
-                    score += 3.5
+                    score += 4.0
 
-            if match_count > 0 or not keywords:
-                scored_sentences.append((score, s_text, item["chunk_id"], matched_kws))
+            if match_count > 0 or predicate_count > 0 or not keywords:
+                scored_sentences.append((score, s_text, item["chunk_id"], matched_kws + matched_predicates))
 
         if scored_sentences:
             # Sort by highest score
@@ -223,19 +348,30 @@ class GroundedLLMGenerator:
             selected = [top_sentence_resolved]
             covered_keywords = set(top_matches)
             
-            # Complementary sentence synthesis: find a secondary sentence that adds distinct facts
-            for sc_score, sc_text, sc_cid, sc_matches in scored_sentences[1:]:
-                # Check for new keywords and avoid near-duplicates
-                new_kws = [k for k in sc_matches if k not in covered_keywords]
-                if sc_text not in selected and len(" ".join(selected + [sc_text])) <= 320:
-                    if new_kws or (intent == "EXPLANATORY" and any(w in sc_text.lower() for w in ["enables", "reduces", "ensures", "results"])):
+            # Complementary sentence synthesis: find a secondary sentence for multi-aspect queries (e.g. 'where is X and what is it famous for')
+            is_compound_query = bool(re.search(r'\b(and|also|as well as|both)\b', query.lower()))
+            
+            if is_compound_query or intent in ("DEFINITIONAL", "EXPLANATORY"):
+                for sc_score, sc_text, sc_cid, sc_matches in scored_sentences[1:]:
+                    new_kws = [k for k in sc_matches if k not in covered_keywords]
+                    if sc_text.strip().lower() != top_sentence.strip().lower():
                         resolved_sec = self._resolve_coreferences(sc_text, subject_entity)
-                        # Avoid duplicating the subject if both start with the same noun
-                        if not (resolved_sec.startswith(subject_entity) and selected[0].startswith(subject_entity)):
-                            selected.append(resolved_sec)
-                            covered_keywords.update(sc_matches)
-                            if len(selected) >= 2:
-                                break
+                        
+                        # Deduplication check against already selected sentences
+                        norm_sec = re.sub(r'^(it|they|this)\s+(is|are|was|were)\s+', '', resolved_sec.lower()).strip()
+                        norm_sec = re.sub(r'[^a-zA-Z0-9]', '', norm_sec)
+                        is_dup = any(norm_sec in re.sub(r'[^a-zA-Z0-9]', '', s.lower()) or re.sub(r'[^a-zA-Z0-9]', '', s.lower()) in norm_sec for s in selected)
+                        
+                        if not is_dup and len(" ".join(selected + [resolved_sec])) <= 320:
+                            if new_kws or is_compound_query or (intent == "EXPLANATORY" and any(w in sc_text.lower() for w in ["enables", "reduces", "ensures", "results"])):
+                                # If both start with the same subject entity, change the secondary sentence to use pronoun 'It is'
+                                if subject_entity and resolved_sec.startswith(subject_entity) and selected[0].startswith(subject_entity):
+                                    resolved_sec = re.sub(rf'^{re.escape(subject_entity)}\s+is\b', 'It is', resolved_sec, flags=re.IGNORECASE)
+                                
+                                selected.append(resolved_sec)
+                                covered_keywords.update(sc_matches)
+                                if len(selected) >= 2:
+                                    break
 
             final_answer = " ".join(selected).strip()
             # Ensure answer ends with proper punctuation

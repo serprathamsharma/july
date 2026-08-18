@@ -14,8 +14,13 @@ class GroundingGuardrail:
             # Honest abstention is grounded
             return {"grounded": True, "reason": "honest_abstention", "grounding_score": 1.0}
 
-        # Combine all source text
-        context_corpus = " ".join([sc.chunk.text.lower() for sc in context_chunks])
+        # Combine all source text (including parent document provenance from VAST hierarchical chunking)
+        context_corpus_parts = []
+        for sc in context_chunks:
+            if sc.chunk.parent_document:
+                context_corpus_parts.append(sc.chunk.parent_document.lower())
+            context_corpus_parts.append(sc.chunk.text.lower())
+        context_corpus = " ".join(context_corpus_parts)
         context_words = set(re.findall(r'\w+', context_corpus))
 
         # Extract answer words
