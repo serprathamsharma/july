@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Mic, Square, Loader2, Volume2, AlertCircle, Sparkles } from 'lucide-react';
-
+import { WaveformVisualizer } from './WaveformVisualizer';
 import { normalizeVoiceQuery } from '../utils/voiceNormalizer';
 
 export type MicState = 'Idle' | 'Listening' | 'Processing' | 'Generating' | 'Complete' | 'Error';
@@ -19,28 +19,11 @@ export const MicButton: React.FC<MicButtonProps> = ({
   onLiveTranscriptChange
 }) => {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [activeStream, setActiveStream] = useState<MediaStream | null>(null);
   const [liveTranscript, setLiveTranscript] = useState<string>('');
   const liveTranscriptRef = useRef<string>('');
   const recognitionRef = useRef<any>(null);
   const audioChunks = useRef<Blob[]>([]);
-  const [audioLevels, setAudioLevels] = useState<number[]>([15, 30, 45, 20, 35]);
-
-  // Audio wave animation simulator during recording
-  useEffect(() => {
-    let interval: any;
-    if (state === 'Listening') {
-      interval = setInterval(() => {
-        setAudioLevels([
-          Math.floor(Math.random() * 60) + 15,
-          Math.floor(Math.random() * 90) + 20,
-          Math.floor(Math.random() * 70) + 30,
-          Math.floor(Math.random() * 85) + 15,
-          Math.floor(Math.random() * 50) + 20,
-        ]);
-      }, 120);
-    }
-    return () => clearInterval(interval);
-  }, [state]);
 
   const startRecording = async () => {
     try {
@@ -79,6 +62,7 @@ export const MicButton: React.FC<MicButtonProps> = ({
 
       // Initialize MediaRecorder for audio blob capture
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setActiveStream(stream);
       const recorder = new MediaRecorder(stream);
       audioChunks.current = [];
 
@@ -93,6 +77,7 @@ export const MicButton: React.FC<MicButtonProps> = ({
         const finalTranscript = liveTranscriptRef.current.trim();
         onAudioRecorded(audioBlob, finalTranscript);
         stream.getTracks().forEach((track) => track.stop());
+        setActiveStream(null);
       };
 
       recorder.start();
@@ -165,16 +150,10 @@ export const MicButton: React.FC<MicButtonProps> = ({
 
       {/* Live Audio Waveform Bars */}
       {state === 'Listening' && (
-        <div className="flex items-center gap-1.5 h-10 mt-6 px-4 py-2 rounded-full glass-card">
-          <Volume2 className="w-4 h-4 text-rose-400 mr-2 animate-pulse" />
-          {audioLevels.map((height, idx) => (
-            <div
-              key={idx}
-              className="w-1.5 bg-rose-500 rounded-full transition-all duration-100"
-              style={{ height: `${height}%` }}
-            />
-          ))}
-          <span className="text-xs font-mono text-rose-300 ml-2">Recording Voice...</span>
+        <div className="flex items-center gap-3 mt-6 px-5 py-2.5 rounded-full glass-card border border-rose-500/30 shadow-lg shadow-rose-950/20">
+          <Volume2 className="w-4 h-4 text-rose-400 animate-pulse flex-shrink-0" />
+          <WaveformVisualizer stream={activeStream} isRecording={state === 'Listening'} />
+          <span className="text-xs font-mono text-rose-300 font-medium">Listening...</span>
         </div>
       )}
 

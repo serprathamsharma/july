@@ -49,6 +49,13 @@ class Settings(BaseSettings):
     ENABLE_RATE_LIMITING: bool = Field(default=True)
     RATE_LIMIT_PER_MINUTE: int = Field(default=60)
     ENABLE_PII_REDACTION: bool = Field(default=True)
+    CORS_ORIGINS: str = Field(default="*")
+    CONFIDENCE_ABSTAIN_THRESHOLD: float = Field(default=0.35)
+
+    def get_cors_origins(self) -> list[str]:
+        if not self.CORS_ORIGINS or self.CORS_ORIGINS.strip() == "*":
+            return ["*"]
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
     class Config:
         env_file = ".env"

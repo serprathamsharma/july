@@ -77,7 +77,7 @@ app = FastAPI(
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -93,11 +93,24 @@ class TTSRequest(BaseModel):
     language_code: Optional[str] = "en-IN"
     speaker: Optional[str] = None
 
+class FeedbackRequest(BaseModel):
+    request_id: str
+    rating: str  # 'up' or 'down'
+    comment: Optional[str] = None
+
 class IngestDocumentRequest(BaseModel):
     document_id: str
     text: str
     language: Optional[str] = "en"
     metadata: Optional[Dict[str, Any]] = None
+
+@app.post("/api/feedback")
+async def record_user_feedback(req: FeedbackRequest):
+    """Records thumbs-up or thumbs-down user feedback for model fine-tuning and telemetry."""
+    if not req.request_id or req.rating not in ["up", "down"]:
+        raise HTTPException(status_code=400, detail="Invalid feedback payload: request_id and rating ('up'/'down') required.")
+    analytics_store.record_feedback(request_id=req.request_id, rating=req.rating, comment=req.comment)
+    return {"status": "success", "message": "Feedback recorded", "feedback": analytics_store.sqlite_store.get_feedback_summary()}
 
 @app.post("/api/ingest")
 async def ingest_document(req: IngestDocumentRequest):

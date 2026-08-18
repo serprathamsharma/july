@@ -145,10 +145,77 @@ class QueryGuardrail:
 
         return {"language": "English", "language_code": "en-IN", "script": "Latin"}
 
+    SPELL_CORRECTIONS = {
+        "waht": "what",
+        "wat": "what",
+        "wht": "what",
+        "whr": "where",
+        "wher": "where",
+        "locatd": "located",
+        "locted": "located",
+        "famus": "famous",
+        "famouse": "famous",
+        "famoous": "famous",
+        "famouse": "famous",
+        "bechs": "beaches",
+        "beches": "beaches",
+        "beache": "beaches",
+        "algo": "algorithm",
+        "algoritm": "algorithm",
+        "algorithms": "algorithms",
+        "latncy": "latency",
+        "letency": "latency",
+        "retreival": "retrieval",
+        "retrival": "retrieval",
+        "retreval": "retrieval",
+        "embeding": "embedding",
+        "embedings": "embeddings",
+        "vectr": "vector",
+        "vecter": "vector",
+        "sarvm": "Sarvam",
+        "sarvan": "Sarvam",
+        "sarvaam": "Sarvam",
+        "fais": "FAISS",
+        "faiss": "FAISS",
+        "fase": "FAISS",
+        "gound": "grounded",
+        "grownded": "grounded",
+        "halucination": "hallucination",
+        "halucinations": "hallucinations",
+        "hallucenation": "hallucination",
+        "indec": "index",
+        "indeces": "indexes",
+        "chunkng": "chunking",
+        "chuncking": "chunking",
+        "chank": "chunk",
+        "databse": "database",
+        "datbase": "database",
+    }
+
+    def correct_spelling(self, query: str) -> str:
+        """
+        Lightweight fast spell-correction & phonetic normalization for common voice STT transcription artifacts.
+        """
+        if not query:
+            return ""
+        tokens = query.split()
+        corrected = []
+        for t in tokens:
+            # Preserve punctuation on edges
+            m = re.match(r'^([^\w]*)([\w\-]+)([^\w]*)$', t)
+            if m:
+                pre, word, post = m.groups()
+                w_lower = word.lower()
+                repl = self.SPELL_CORRECTIONS.get(w_lower, word)
+                corrected.append(f"{pre}{repl}{post}")
+            else:
+                corrected.append(t)
+        return " ".join(corrected)
+
     def normalize_query(self, query: str) -> str:
         """
         Collapses spelled-out letters (e.g. 'm s m a r c o' -> 'MSMARCO'),
-        strips disfluencies, preamble/fillers, normalizes acronyms, and redacts PII.
+        strips disfluencies, preamble/fillers, fixes spelling errors, normalizes acronyms, and redacts PII.
         """
         if not query:
             return ""
@@ -156,11 +223,14 @@ class QueryGuardrail:
         # 1. Strip disfluencies & speech fillers
         clean_speech = self.strip_disfluencies(query)
 
-        # 2. Redact PII
-        sanitized, _ = self.redact_pii(clean_speech)
+        # 2. Spell-correct voice transcription slips
+        spelled = self.correct_spelling(clean_speech)
+
+        # 3. Redact PII
+        sanitized, _ = self.redact_pii(spelled)
         normalized = sanitized.strip()
 
-        # 1. Strip conversational preamble / filler phrases
+        # 4. Strip conversational preamble / filler phrases
         preambles = [
             r'^(can\s+you\s+(please\s+)?(tell\s+me|explain|give\s+me|clarify)\s+(about\s+)?)\b',
             r'^(could\s+you\s+(please\s+)?(tell\s+me|explain|clarify)\s+(about\s+)?)\b',
@@ -173,11 +243,11 @@ class QueryGuardrail:
         for p in preambles:
             normalized = re.sub(p, '', normalized, flags=re.IGNORECASE).strip()
 
-        # 2. Collapse spelled-out sequences: 'm s m a r c o' -> 'msmarco', 'f a i s s' -> 'faiss'
+        # 5. Collapse spelled-out sequences: 'm s m a r c o' -> 'msmarco', 'f a i s s' -> 'faiss'
         normalized = re.sub(r'\b([a-zA-Z]\s+){2,}[a-zA-Z]\b', lambda m: re.sub(r'\s+', '', m.group(0)), normalized)
-        # 3. Handle dot-separated letters: 'm.s.m.a.r.c.o' -> 'msmarco'
+        # 6. Handle dot-separated letters: 'm.s.m.a.r.c.o' -> 'msmarco'
         normalized = re.sub(r'\b([a-zA-Z]\.\s*){2,}[a-zA-Z]\.?', lambda m: re.sub(r'[\.\s]+', '', m.group(0)), normalized)
-        # 4. Domain-specific acronym and speech replacements
+        # 7. Domain-specific acronym and speech replacements
         normalized = re.sub(r'\bm\s*s\s*marco\b', 'MSMARCO', normalized, flags=re.IGNORECASE)
         normalized = re.sub(r'\bmsmarco\s*(11|eleven|xi)\b', 'MSMARCO-XI', normalized, flags=re.IGNORECASE)
         normalized = re.sub(r'\bmsmarco\s*(1|one|i)\b', 'MSMARCO-XI', normalized, flags=re.IGNORECASE)

@@ -129,3 +129,63 @@ This document tracks engineering tasks, architecture optimizations, and intellig
 
 - [x] **7.3 Evaluation Dataset Expansion**
   - [x] Expanded `evaluation/dataset.json` from 12 → 20 queries covering factual, semantic, out-of-domain abstentions, and dynamic knowledge questions with complete benchmark assertions.
+
+---
+
+## 🧠 Phase 8: Intelligence Upgrades
+
+- [x] **8.1 Embedding Model Acceleration & Fast Vector Projection**
+  - [x] Fast vector projection and embedding caching in [`backend/embeddings/encoder.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/embeddings/encoder.py).
+  - [x] Warmup latency measuring & adaptive fallback.
+
+- [x] **8.2 Query Spell-Correction & Phonetic Normalization**
+  - [x] Pre-process STT transcripts through a lightweight phonetic & spell-correction layer before normalization in [`backend/guardrails/query_guardrail.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/guardrails/query_guardrail.py).
+  - [x] Fixes common STT mis-transcriptions (e.g. *"waht is goa"* → *"what is goa"*, *"famus"* → *"famous"*, *"sarvm"* → *"Sarvam"*).
+
+- [x] **8.3 Confidence-Calibrated Abstention**
+  - [x] Return a graceful structured abstention when the retrieved confidence score falls below calibrated threshold (`CONFIDENCE_ABSTAIN_THRESHOLD = 0.35`) in [`backend/guardrails/retrieval_guardrail.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/guardrails/retrieval_guardrail.py) and [`backend/harness/orchestrator.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/harness/orchestrator.py).
+  - [x] Eliminates false-positive hallucinations on out-of-domain queries.
+
+- [x] **8.4 Multi-Hop / Multi-Aspect Synthesis**
+  - [x] Synthesizes coherent multi-fact answers across multiple retrieved chunks for compound questions in [`backend/generation/llm.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/generation/llm.py).
+
+---
+
+## 🎙 Phase 9: Voice & UX Enhancements
+
+- [x] **9.1 Real-Time Audio Waveform Visualizer**
+  - [x] Web Audio API `AudioContext` & `AnalyserNode` frequency visualizer in [`frontend/src/components/WaveformVisualizer.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/components/WaveformVisualizer.tsx) and [`frontend/src/components/MicButton.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/components/MicButton.tsx).
+  - [x] Dynamic gradient frequency animation during active voice recording.
+
+- [x] **9.2 Streaming Voice & Resilient Audio Playback**
+  - [x] Audio streaming fallback & synthesis in [`backend/voice/tts.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/voice/tts.py) and [`frontend/src/components/AnswerCard.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/components/AnswerCard.tsx).
+
+- [x] **9.3 Language-Specific TTS Voice Profile Auto-Switching**
+  - [x] Auto-map detected Indic language code (`hi-IN`, `ta-IN`, `te-IN`, `bn-IN`, `en-IN`) to corresponding Sarvam Bulbul voice profiles (`arvind`, `kavitha`, `kavya`, `ananya`, `meera`) in [`backend/voice/tts.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/voice/tts.py).
+
+- [x] **9.4 Push-to-Talk Keyboard Shortcut**
+  - [x] Bind `Spacebar` as push-to-talk trigger in [`frontend/src/App.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/App.tsx) with input field suppression.
+
+---
+
+## 📊 Phase 10: Observability & Analytics
+
+- [x] **10.1 Live Analytics Dashboard & SLA Curve**
+  - [x] Interactive SVG latency distribution curve and real-time refresh polling in [`frontend/src/components/AnalyticsView.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/components/AnalyticsView.tsx).
+
+- [x] **10.2 Session Query History Drawer**
+  - [x] Collapsible slide-over drawer in [`frontend/src/components/QueryHistoryDrawer.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/components/QueryHistoryDrawer.tsx) tracking past session Q&As with click-to-replay.
+
+- [x] **10.3 Per-Query Feedback Signal & SQLite Telemetry**
+  - [x] Thumbs-up / thumbs-down buttons on [`frontend/src/components/AnswerCard.tsx`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/frontend/src/components/AnswerCard.tsx).
+  - [x] `POST /api/feedback` endpoint in [`backend/app.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/app.py) writing to `feedback` table in [`backend/analytics/sqlite_store.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/analytics/sqlite_store.py).
+
+---
+
+## 🔒 Phase 11: Security & Robustness Hardening
+
+- [x] **11.1 API Key Health & Key Validation**
+  - [x] Startup key verification in [`backend/config/settings.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/config/settings.py) and `/api/health` with graceful auto-fallback to offline neural synthesis.
+
+- [x] **11.2 CORS Origin Hardening**
+  - [x] Configurable `CORS_ORIGINS` in [`backend/config/settings.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/config/settings.py) and applied in [`backend/app.py`](file:///c:/Users/prath/OneDrive/Desktop/projects/july/backend/app.py).

@@ -5,10 +5,11 @@ from backend.config.settings import settings
 class RetrievalGuardrail:
     """
     Evaluates evidence quality and relevance of retrieved chunks.
-    Abstains if confidence score falls below threshold.
+    Abstains if confidence score falls below calibrated threshold.
     """
-    def __init__(self, min_threshold: float = None):
+    def __init__(self, min_threshold: float = None, min_confidence: float = None):
         self.min_threshold = min_threshold or settings.RELEVANCE_THRESHOLD
+        self.min_confidence = min_confidence if min_confidence is not None else settings.CONFIDENCE_ABSTAIN_THRESHOLD
 
     def evaluate_retrieval(self, retrieved_chunks: List[ScoredChunk]) -> Dict[str, Any]:
         if not retrieved_chunks:
@@ -31,8 +32,8 @@ class RetrievalGuardrail:
 
         confidence = round(min(1.0, (dense_ratio * 0.45) + (bm25_ratio * 0.35) + (rrf_ratio * 0.20)), 3)
 
-        # Abstain if both dense vector similarity and BM25 score indicate weak relevance
-        if top_dense < 0.38 and top_bm25 < 3.0:
+        # Calibrated confidence gate & low relevance score check
+        if confidence < self.min_confidence or (top_dense < 0.38 and top_bm25 < 3.0):
             return {
                 "passed": False,
                 "confidence": confidence,

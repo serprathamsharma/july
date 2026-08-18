@@ -45,8 +45,50 @@ class SQLiteAnalyticsStore:
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    request_id TEXT,
+                    rating TEXT NOT NULL,
+                    comment TEXT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             conn.commit()
             conn.close()
+
+    def record_feedback(self, request_id: str, rating: str, comment: Optional[str] = None):
+        """Records user feedback ('up' or 'down') for a given query request."""
+        with self._lock:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO feedback (request_id, rating, comment) VALUES (?, ?, ?)
+            """, (request_id, rating, comment or ""))
+            conn.commit()
+            conn.close()
+
+    def get_feedback_summary(self) -> Dict[str, Any]:
+        """Returns aggregated feedback counts (thumbs up, thumbs down, satisfaction rate)."""
+        with self._lock:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT rating, COUNT(*) as count FROM feedback GROUP BY rating")
+            rows = cursor.fetchall()
+            conn.close()
+
+        counts = {r["rating"]: r["count"] for r in rows}
+        up = counts.get("up", 0)
+        down = counts.get("down", 0)
+        total = up + down
+        satisfaction = round((up / total * 100), 1) if total > 0 else 100.0
+
+        return {
+            "thumbs_up": up,
+            "thumbs_down": down,
+            "total_feedback": total,
+            "satisfaction_rate": satisfaction
+        }
 
     def record_request(self, metrics: LatencyMetrics, guardrail_event: Optional[str] = None):
         with self._lock:

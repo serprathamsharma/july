@@ -187,7 +187,17 @@ python scripts/verify_production.py
 | `GET /api/analytics` | `GET` | Fetch real-time P50, P70, P100 latency metrics and SLA counters |
 | `POST /api/ingest` | `POST` | Dynamic hot-reload ingestion of new documents into live indexes |
 | `GET /api/sources/{chunk_id}` | `GET` | Inspect chunk provenance and parent document context |
+| `POST /api/feedback` | `POST` | Record thumbs-up / down user feedback telemetry into SQLite |
 | `POST /api/benchmark/run` | `POST` | Trigger automated evaluation suite |
+
+---
+
+## 🎨 Interactive Voice UX Features
+
+- **Real-Time Audio Waveform Spectrum**: Web Audio API `AnalyserNode` frequency visualizer animated live during voice capture.
+- **Session Query History Drawer**: Slide-over panel tracking all queries and answers in the session with instant replay.
+- **Push-to-Talk Ergonomics**: Press `Spacebar` anywhere in the app to speak without mouse clicks.
+- **Per-Query Model Feedback**: Thumbs-up / down rating signal recorded directly to SQLite for fine-tuning telemetry.
 
 ---
 

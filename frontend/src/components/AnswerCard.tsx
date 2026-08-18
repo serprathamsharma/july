@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, BookOpen, ShieldCheck, AlertTriangle, ExternalLink, Volume2, VolumeX, Loader2 } from 'lucide-react';
-import { type RAGPipelineResponse, type RetrievedChunkPayload, synthesizeSpeech } from '../services/api';
+import { Sparkles, BookOpen, ShieldCheck, AlertTriangle, ExternalLink, Volume2, VolumeX, Loader2, ThumbsUp, ThumbsDown, Check } from 'lucide-react';
+import { type RAGPipelineResponse, type RetrievedChunkPayload, synthesizeSpeech, submitFeedback } from '../services/api';
 import { LatencyBadge } from './LatencyBadge';
 import { SourceExplorer } from './SourceExplorer';
 
@@ -15,6 +15,8 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
   const [selectedChunk, setSelectedChunk] = useState<RetrievedChunkPayload | null>(null);
   const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
   const [isSynthesizing, setIsSynthesizing] = useState<boolean>(false);
+  const [userRating, setUserRating] = useState<'up' | 'down' | null>(null);
+  const [feedbackSent, setFeedbackSent] = useState<boolean>(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const isAbstention = !response.supported || response.answer.includes("couldn't find enough");
@@ -113,6 +115,22 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
       setIsSpeaking(false);
     }
   };
+
+  const handleFeedback = async (rating: 'up' | 'down') => {
+    if (userRating === rating) return;
+    setUserRating(rating);
+    setFeedbackSent(true);
+    try {
+      await submitFeedback(response.request_id, rating);
+    } catch (err) {
+      console.warn("Feedback submission error:", err);
+    }
+  };
+
+  useEffect(() => {
+    setUserRating(null);
+    setFeedbackSent(false);
+  }, [response.request_id]);
 
   useEffect(() => {
     return () => {
@@ -213,11 +231,37 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({ response, selectedMode, 
           )}
         </div>
 
-        {/* Confidence Pill */}
-        <div className="flex items-center gap-2">
+        {/* Confidence Pill & Thumbs Feedback */}
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 px-2.5 py-1 bg-slate-900/80 rounded-md border border-slate-800 text-[11px] font-mono text-slate-400">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
             Confidence: <span className="text-emerald-400 font-semibold">{Math.round(response.confidence * 100)}%</span>
+          </div>
+
+          {/* Feedback Buttons */}
+          <div className="flex items-center gap-1 bg-slate-900/80 p-0.5 rounded-md border border-slate-800 text-xs">
+            <button
+              onClick={() => handleFeedback('up')}
+              className={`p-1.5 rounded transition-all flex items-center gap-1 ${
+                userRating === 'up'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+              }`}
+              title="Good answer"
+            >
+              {feedbackSent && userRating === 'up' ? <Check className="w-3 h-3 text-emerald-400" /> : <ThumbsUp className="w-3 h-3" />}
+            </button>
+            <button
+              onClick={() => handleFeedback('down')}
+              className={`p-1.5 rounded transition-all flex items-center gap-1 ${
+                userRating === 'down'
+                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+              }`}
+              title="Poor answer"
+            >
+              {feedbackSent && userRating === 'down' ? <Check className="w-3 h-3 text-rose-400" /> : <ThumbsDown className="w-3 h-3" />}
+            </button>
           </div>
         </div>
       </div>

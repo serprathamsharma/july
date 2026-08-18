@@ -77,7 +77,26 @@ export interface AnalyticsSummary {
     grounding_failures: number;
     unsafe_queries_blocked: number;
   };
+  feedback?: {
+    thumbs_up: number;
+    thumbs_down: number;
+    total_feedback: number;
+    satisfaction_rate: number;
+  };
 }
+
+export const submitFeedback = async (
+  requestId: string,
+  rating: 'up' | 'down',
+  comment?: string
+): Promise<{ status: string; feedback: { thumbs_up: number; thumbs_down: number; total_feedback: number; satisfaction_rate: number } }> => {
+  const response = await axios.post(`${API_BASE_URL}/feedback`, {
+    request_id: requestId,
+    rating,
+    comment
+  });
+  return response.data;
+};
 
 export const processTextQuery = async (query: string, mode: string = "RAG"): Promise<RAGPipelineResponse> => {
   const response = await axios.post<RAGPipelineResponse>(`${API_BASE_URL}/text/query`, { query, mode });
@@ -182,6 +201,12 @@ export const fetchAnalytics = async (): Promise<AnalyticsSummary> => {
         low_confidence_abstentions: 4,
         grounding_failures: 1,
         unsafe_queries_blocked: 2
+      },
+      feedback: {
+        thumbs_up: 38,
+        thumbs_down: 4,
+        total_feedback: 42,
+        satisfaction_rate: 90.5
       }
     };
   }

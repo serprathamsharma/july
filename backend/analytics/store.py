@@ -60,6 +60,10 @@ class AnalyticsStore:
         self.unsafe_queries_blocked = 0
         print("[AnalyticsStore] Metrics history reset.")
 
+    def record_feedback(self, request_id: str, rating: str, comment: Optional[str] = None):
+        """Records feedback through to SQLite."""
+        self.sqlite_store.record_feedback(request_id, rating, comment)
+
     def get_latency_stats(self) -> Dict[str, Any]:
         """
         Calculate dynamic P50, P70, P100 percentile metrics over request history.
@@ -103,7 +107,8 @@ class AnalyticsStore:
                     "low_confidence_abstentions": self.low_confidence_abstentions,
                     "grounding_failures": self.grounding_failures,
                     "unsafe_queries_blocked": self.unsafe_queries_blocked
-                }
+                },
+                "feedback": self.sqlite_store.get_feedback_summary()
             }
 
         rag_totals = [m.total_ms for m in self.history if m.total_ms > 0]
@@ -155,7 +160,8 @@ class AnalyticsStore:
                 "low_confidence_abstentions": self.low_confidence_abstentions,
                 "grounding_failures": self.grounding_failures,
                 "unsafe_queries_blocked": self.unsafe_queries_blocked
-            }
+            },
+            "feedback": self.sqlite_store.get_feedback_summary()
         }
 
 analytics_store = AnalyticsStore()

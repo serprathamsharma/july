@@ -9,11 +9,32 @@ class SarvamTTSProvider:
     Integrates with Sarvam AI Text-to-Speech (TTS) API (Bulbul v1)
     to synthesize high-fidelity natural speech responses in Indic & Indian-English languages.
     """
+    # Mapping Indic language codes to optimal Sarvam Bulbul v1 voice profiles
+    LANGUAGE_VOICE_MAP = {
+        "en-IN": "meera",
+        "hi-IN": "arvind",
+        "ta-IN": "kavitha",
+        "te-IN": "kavya",
+        "bn-IN": "ananya",
+        "kn-IN": "shruti",
+        "ml-IN": "reshma",
+        "gu-IN": "pooja",
+        "mr-IN": "aarohi",
+        "pa-IN": "gurpreet",
+        "or-IN": "archana"
+    }
+
     def __init__(self):
         self.api_key = settings.SARVAM_API_KEY
         self.endpoint = settings.SARVAM_TTS_URL
         self.default_speaker = settings.SARVAM_TTS_SPEAKER
         self._cache: Dict[str, str] = {}  # (text_hash, lang) -> base64 audio
+
+    def resolve_speaker(self, language_code: str, speaker_override: Optional[str] = None) -> str:
+        """Determines best voice speaker profile based on language code and overrides."""
+        if speaker_override:
+            return speaker_override
+        return self.LANGUAGE_VOICE_MAP.get(language_code, self.default_speaker)
 
     async def synthesize(
         self,
@@ -40,7 +61,7 @@ class SarvamTTSProvider:
         if len(clean_text) > 500:
             clean_text = clean_text[:497] + "..."
 
-        speaker_name = speaker or self.default_speaker
+        speaker_name = self.resolve_speaker(target_language_code, speaker)
         cache_key = f"{clean_text}_{target_language_code}_{speaker_name}"
 
         if cache_key in self._cache:

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, Activity } from 'lucide-react';
+import { Sparkles, Activity, History } from 'lucide-react';
 import { MicButton, type MicState } from './components/MicButton';
 import { AnswerCard } from './components/AnswerCard';
 import { AnalyticsView } from './components/AnalyticsView';
+import { QueryHistoryDrawer, type HistoryItem } from './components/QueryHistoryDrawer';
 import { processTextQuery, processTextQueryStream, processVoiceQuery, type RAGPipelineResponse } from './services/api';
 
 export const App: React.FC = () => {
@@ -11,7 +12,47 @@ export const App: React.FC = () => {
   const [ragResponse, setRagResponse] = useState<RAGPipelineResponse | null>(null);
   const [selectedMode, setSelectedMode] = useState<'RAG' | 'End-to-End'>('End-to-End');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+  const [queryHistory, setQueryHistory] = useState<HistoryItem[]>([]);
   const isManualScrollingRef = useRef(false);
+  const spacebarDownRef = useRef(false);
+
+  // Push-to-Talk keyboard shortcut (Spacebar)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input or textarea
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      if (e.code === 'Space' && !e.repeat && !spacebarDownRef.current) {
+        if (micState === 'Idle' || micState === 'Complete') {
+          e.preventDefault();
+          spacebarDownRef.current = true;
+          // Scroll to voice rag section if not visible
+          const voiceRagEl = document.getElementById('voice-rag');
+          if (voiceRagEl && activeSection !== 'voice-rag') {
+            voiceRagEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && spacebarDownRef.current) {
+        e.preventDefault();
+        spacebarDownRef.current = false;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [micState, activeSection]);
 
   // Animated Stats Counter State matching actual RAG dataset & performance data
   const [stats, setStats] = useState({
@@ -110,11 +151,12 @@ export const App: React.FC = () => {
 
     try {
       const queryToSubmit = liveTranscript?.trim();
+      let finalRes: RAGPipelineResponse;
 
       if (queryToSubmit) {
         // Stream text response token-by-token
         let accumulatedTokens = '';
-        const response = await processTextQueryStream(
+        finalRes = await processTextQueryStream(
           queryToSubmit,
           selectedMode,
           (token) => {
@@ -143,11 +185,23 @@ export const App: React.FC = () => {
             }));
           }
         );
-        setRagResponse(response);
       } else {
-        const response = await processVoiceQuery(audioBlob, 'en-IN');
-        setRagResponse(response);
+        finalRes = await processVoiceQuery(audioBlob, 'en-IN');
       }
+
+      setRagResponse(finalRes);
+      
+      // Append to session query history
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setQueryHistory((prev) => [
+        {
+          id: finalRes.request_id || `hist_${Date.now()}`,
+          timestamp: timeStr,
+          response: finalRes
+        },
+        ...prev.slice(0, 9)
+      ]);
 
       setMicState('Complete');
     } catch (err) {
@@ -189,6 +243,19 @@ export const App: React.FC = () => {
             >
               Analytics
             </button>
+            <button
+              onClick={() => setHistoryDrawerOpen(true)}
+              className="nav-link flex items-center gap-1.5 hover:text-indigo-400"
+              title="View past questions in this session"
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>History</span>
+              {queryHistory.length > 0 && (
+                <span className="w-4 h-4 text-[10px] bg-indigo-600 text-white rounded-full flex items-center justify-center font-mono">
+                  {queryHistory.length}
+                </span>
+              )}
+            </button>
           </nav>
 
           {/* Mobile Hamburger Button */}
@@ -204,6 +271,18 @@ export const App: React.FC = () => {
           </button>
         </header>
       </div>
+
+      {/* Query History Slide-Over Drawer */}
+      <QueryHistoryDrawer
+        isOpen={historyDrawerOpen}
+        onClose={() => setHistoryDrawerOpen(false)}
+        history={queryHistory}
+        onSelectQuery={(item) => {
+          setRagResponse(item.response);
+          scrollToSection('voice-rag');
+        }}
+        onClearHistory={() => setQueryHistory([])}
+      />
 
       {/* 2) SECTION 1: HERO LANDING */}
       <section id="hero" className="hero-section">
@@ -342,6 +421,20 @@ export const App: React.FC = () => {
                 className={`mobile-nav-link ${activeSection === 'analytics' ? 'active' : ''}`}
               >
                 Analytics
+              </button>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setHistoryDrawerOpen(true);
+                }}
+                className="mobile-nav-link flex items-center justify-between"
+              >
+                <span>Query History</span>
+                {queryHistory.length > 0 && (
+                  <span className="text-xs bg-indigo-600 px-2 py-0.5 rounded-full text-white">
+                    {queryHistory.length}
+                  </span>
+                )}
               </button>
             </nav>
           </div>
