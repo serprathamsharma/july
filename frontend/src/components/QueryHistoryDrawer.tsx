@@ -34,8 +34,8 @@ export const QueryHistoryDrawer: React.FC<QueryHistoryDrawerProps> = ({
       />
 
       {/* Slide-over Drawer Panel */}
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-slate-950/95 border-l border-slate-800 p-6 flex flex-col shadow-2xl backdrop-blur-xl">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
+        <div className="w-screen max-w-md bg-slate-950/95 border-l border-slate-800 p-4 sm:p-6 flex flex-col shadow-2xl backdrop-blur-xl">
           {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 mb-6">
             <div className="flex items-center gap-2.5">

@@ -77,7 +77,7 @@ export const AnalyticsView: React.FC = () => {
       </div>
 
       {/* Latency Percentiles Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
         <div className="glass-panel rounded-2xl p-6 border border-[#7986cb]/35 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 text-[#7986cb]/20">
             <Zap className="w-16 h-16" />
