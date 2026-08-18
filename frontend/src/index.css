@@ -114,13 +114,40 @@ body {
   padding: clamp(12px, 2vh, 20px) clamp(14px, 3vw, 32px);
 }
 
+/* Custom Theme-Matched Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.45);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(129, 140, 248, 0.8);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.45) rgba(15, 23, 42, 0.6);
+}
+
 .header {
   width: 100%;
-  max-width: 720px;
+  max-width: 880px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(18px, 2.8vw, 28px);
+  gap: clamp(16px, 2.5vw, 28px);
   flex-shrink: 0;
   z-index: 10;
   animation: slideDown 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -156,31 +183,34 @@ body {
 /* Nav Pill (white) */
 .nav-pill {
   flex: 1;
-  max-width: 430px;
+  max-width: 580px;
   height: clamp(44px, 5.2vw, 48px);
   background-color: #ffffff;
   box-shadow: var(--nav-shadow);
   border-radius: 999px;
-  padding: 4px 8px;
+  padding: 4px 12px;
   display: flex;
   align-items: center;
-  justify-content: space-around;
+  justify-content: space-between;
+  gap: 4px;
 }
 
 .nav-link {
   font-family: var(--font-sans);
   font-weight: 500;
-  font-size: clamp(13px, 1.4vw, 15px);
+  font-size: clamp(13px, 1.3vw, 14.5px);
   letter-spacing: -0.01em;
   color: var(--nav-text);
   text-decoration: none;
   opacity: 0.5;
   position: relative;
-  padding: 6px 12px;
+  padding: 6px 10px;
   transition: opacity 0.2s ease;
   background: transparent;
   border: none;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-link:hover {
