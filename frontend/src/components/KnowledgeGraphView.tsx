@@ -15,6 +15,24 @@ interface VisualNode extends KnowledgeGraphNode {
   color: string;
 }
 
+const CATEGORY_COLORS: Record<string, string> = {
+  'Core Platform': '#818cf8', // Indigo
+  'Voice AI': '#fb7185',      // Rose
+  'LLM Synthesis': '#c084fc', // Purple
+  'Knowledge Base': '#34d399',// Emerald
+  'Vector Search': '#38bdf8', // Sky
+  'Lexical Search': '#2dd4bf',// Teal
+  'Score Fusion': '#f472b6',  // Pink
+  'Precision Tuning': '#a78bfa', // Violet
+  'Ingestion': '#fb923c',     // Orange
+  'Safety & PII': '#f87171',  // Red
+  'Self-Reflection': '#e879f9', // Fuchsia
+  'Hackathon': '#facc15',     // Yellow
+  'Geography': '#4ade80',     // Green
+  'Economics': '#60a5fa',     // Blue
+  'General': '#94a3b8'        // Slate
+};
+
 export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ onSelectEntityQuery }) => {
   const [data, setData] = useState<KnowledgeGraphResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -28,29 +46,40 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ onSelect
   const draggedNodeRef = useRef<VisualNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
-  const CATEGORY_COLORS: Record<string, string> = {
-    'Core Platform': '#818cf8', // Indigo
-    'Voice AI': '#fb7185',      // Rose
-    'LLM Synthesis': '#c084fc', // Purple
-    'Knowledge Base': '#34d399',// Emerald
-    'Vector Search': '#38bdf8', // Sky
-    'Lexical Search': '#2dd4bf',// Teal
-    'Score Fusion': '#f472b6',  // Pink
-    'Precision Tuning': '#a78bfa', // Violet
-    'Ingestion': '#fb923c',     // Orange
-    'Safety & PII': '#f87171',  // Red
-    'Self-Reflection': '#e879f9', // Fuchsia
-    'Hackathon': '#facc15',     // Yellow
-    'Geography': '#4ade80',     // Green
-    'Economics': '#60a5fa',     // Blue
-    'General': '#94a3b8'        // Slate
-  };
+  // Mutable refs to prevent stale closure inside the continuous requestAnimationFrame loop
+  const dataRef = useRef<KnowledgeGraphResponse | null>(null);
+  const selectedCategoryRef = useRef<string>('All');
+  const searchQueryRef = useRef<string>('');
+  const selectedNodeRef = useRef<VisualNode | null>(null);
+  const hoveredNodeRef = useRef<VisualNode | null>(null);
+
+  // Synchronize state changes to mutable refs
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
+  useEffect(() => {
+    selectedCategoryRef.current = selectedCategory;
+  }, [selectedCategory]);
+
+  useEffect(() => {
+    searchQueryRef.current = searchQuery;
+  }, [searchQuery]);
+
+  useEffect(() => {
+    selectedNodeRef.current = selectedNode;
+  }, [selectedNode]);
+
+  useEffect(() => {
+    hoveredNodeRef.current = hoveredNode;
+  }, [hoveredNode]);
 
   const loadGraph = () => {
     setLoading(true);
     fetchKnowledgeGraph()
       .then((res) => {
         setData(res);
+        dataRef.current = res;
         initSimulation(res);
       })
       .catch((err) => console.error("Error fetching knowledge graph:", err))
@@ -66,9 +95,45 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ onSelect
     };
   }, []);
 
+  const handleCategoryClick = (cat: string) => {
+    setSelectedCategory(cat);
+    selectedCategoryRef.current = cat;
+
+    if (cat === 'All') {
+      return;
+    }
+
+    // Auto-select and focus the first node belonging to this category
+    const matchingNode = visualNodesRef.current.find(n => n.category === cat);
+    if (matchingNode) {
+      setSelectedNode(matchingNode);
+      selectedNodeRef.current = matchingNode;
+    }
+  };
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    searchQueryRef.current = query;
+
+    if (!query.trim()) return;
+
+    // Auto-select matching node if exact or prefix match
+    const matchingNode = visualNodesRef.current.find(
+      n => n.label.toLowerCase().includes(query.toLowerCase()) || n.id.toLowerCase().includes(query.toLowerCase())
+    );
+    if (matchingNode) {
+      setSelectedNode(matchingNode);
+      selectedNodeRef.current = matchingNode;
+    }
+  };
+
   const initSimulation = (graphData: KnowledgeGraphResponse) => {
     const width = 800;
     const height = 450;
+
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
 
     const visualNodes: VisualNode[] = graphData.nodes.map((n, i) => {
       const isJuly = n.id === 'july';
@@ -103,13 +168,18 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ onSelect
       const nodes = visualNodesRef.current;
       const width = canvas.width;
       const height = canvas.height;
+      const currentCategory = selectedCategoryRef.current;
+      const currentSearch = searchQueryRef.current.trim().toLowerCase();
+      const currentSelected = selectedNodeRef.current;
+      const currentHovered = hoveredNodeRef.current;
+      const currentData = dataRef.current;
 
-      // Simple force simulation: spring to center & node repulsion
+      // Force simulation: spring to center & node repulsion
       for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
         if (node === draggedNodeRef.current) continue;
 
-        // Pull toward center
+        // Center pull
         const dx = width / 2 - node.x;
         const dy = height / 2 - node.y;
         node.vx += dx * 0.0004;
@@ -132,7 +202,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ onSelect
           }
         }
 
-        // Apply friction & boundary limits
+        // Apply friction & boundaries
         node.vx *= 0.92;
         node.vy *= 0.92;
         node.x += node.vx;
@@ -142,56 +212,82 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ onSelect
         node.y = Math.max(node.radius + 10, Math.min(height - node.radius - 10, node.y));
       }
 
-      // Draw everything
+      // Clear Canvas
       ctx.clearRect(0, 0, width, height);
 
       // Draw Edges
-      if (data) {
-        data.edges.forEach((edge) => {
+      if (currentData) {
+        currentData.edges.forEach((edge) => {
           const source = nodes.find(n => n.id === edge.source);
           const target = nodes.find(n => n.id === edge.target);
           if (source && target) {
-            const isHighlighted =
-              (selectedNode && (selectedNode.id === source.id || selectedNode.id === target.id)) ||
-              (hoveredNode && (hoveredNode.id === source.id || hoveredNode.id === target.id));
+            const isSourceMatching = (currentCategory === 'All' || source.category === currentCategory) &&
+                                     (!currentSearch || source.label.toLowerCase().includes(currentSearch));
+            const isTargetMatching = (currentCategory === 'All' || target.category === currentCategory) &&
+                                     (!currentSearch || target.label.toLowerCase().includes(currentSearch));
+            
+            const isEdgeFiltered = !isSourceMatching && !isTargetMatching && (currentCategory !== 'All' || currentSearch);
 
+            const isHighlighted =
+              (currentSelected && (currentSelected.id === source.id || currentSelected.id === target.id)) ||
+              (currentHovered && (currentHovered.id === source.id || currentHovered.id === target.id));
+
+            ctx.save();
             ctx.beginPath();
             ctx.moveTo(source.x, source.y);
             ctx.lineTo(target.x, target.y);
-            ctx.strokeStyle = isHighlighted ? 'rgba(129, 140, 248, 0.75)' : 'rgba(71, 85, 105, 0.25)';
-            ctx.lineWidth = isHighlighted ? 2 : 1;
+
+            if (isHighlighted) {
+              ctx.strokeStyle = 'rgba(129, 140, 248, 0.85)';
+              ctx.lineWidth = 2.5;
+            } else if (isEdgeFiltered) {
+              ctx.strokeStyle = 'rgba(51, 65, 85, 0.15)';
+              ctx.lineWidth = 0.75;
+            } else {
+              ctx.strokeStyle = 'rgba(99, 102, 241, 0.35)';
+              ctx.lineWidth = 1.2;
+            }
             ctx.stroke();
 
-            // Draw directional arrow on highlighted edges
-            if (isHighlighted) {
+            // Draw directional marker on highlighted or active category edges
+            if (isHighlighted || (isSourceMatching && isTargetMatching && currentCategory !== 'All')) {
               const mx = (source.x + target.x) / 2;
               const my = (source.y + target.y) / 2;
               ctx.fillStyle = '#818cf8';
               ctx.beginPath();
-              ctx.arc(mx, my, 3, 0, Math.PI * 2);
+              ctx.arc(mx, my, isHighlighted ? 3.5 : 2.5, 0, Math.PI * 2);
               ctx.fill();
             }
+            ctx.restore();
           }
         });
       }
 
       // Draw Nodes
       nodes.forEach((node) => {
-        const isFiltered =
-          (selectedCategory !== 'All' && node.category !== selectedCategory) ||
-          (searchQuery && !node.label.toLowerCase().includes(searchQuery.toLowerCase()));
+        const matchesCategory = currentCategory === 'All' || node.category === currentCategory;
+        const matchesSearch = !currentSearch || node.label.toLowerCase().includes(currentSearch) || node.id.toLowerCase().includes(currentSearch);
+        const isMatched = matchesCategory && matchesSearch;
 
-        const isSelected = selectedNode?.id === node.id;
-        const isHovered = hoveredNode?.id === node.id;
+        const isSelected = currentSelected?.id === node.id;
+        const isHovered = currentHovered?.id === node.id;
 
         ctx.save();
-        ctx.globalAlpha = isFiltered ? 0.25 : 1.0;
+        ctx.globalAlpha = isMatched ? 1.0 : 0.18;
 
-        // Outer glow
+        // Active / Filtered category halo
+        if (isMatched && (currentCategory !== 'All' || currentSearch)) {
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, node.radius + 6, 0, Math.PI * 2);
+          ctx.fillStyle = `${node.color}30`;
+          ctx.fill();
+        }
+
+        // Selection / Hover outer glow
         if (isSelected || isHovered) {
           ctx.beginPath();
-          ctx.arc(node.x, node.y, node.radius + 8, 0, Math.PI * 2);
-          ctx.fillStyle = `${node.color}33`;
+          ctx.arc(node.x, node.y, node.radius + 10, 0, Math.PI * 2);
+          ctx.fillStyle = `${node.color}45`;
           ctx.fill();
         }
 
@@ -200,22 +296,21 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ onSelect
         ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
         ctx.fillStyle = node.color;
         ctx.shadowColor = node.color;
-        ctx.shadowBlur = isSelected || isHovered ? 18 : 6;
+        ctx.shadowBlur = isSelected || isHovered ? 20 : isMatched && currentCategory !== 'All' ? 12 : 5;
         ctx.fill();
 
         // Inner core border
-        ctx.lineWidth = isSelected ? 3 : 1.5;
-        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = isSelected ? 3 : isMatched && currentCategory !== 'All' ? 2 : 1.2;
+        ctx.strokeStyle = isSelected ? '#ffffff' : 'rgba(255, 255, 255, 0.85)';
         ctx.stroke();
 
         // Label
         ctx.shadowBlur = 0;
-        ctx.fillStyle = '#ffffff';
-        ctx.font = node.id === 'july' ? 'bold 12px Inter, sans-serif' : '500 10px Inter, sans-serif';
+        ctx.fillStyle = isMatched ? '#ffffff' : '#64748b';
+        ctx.font = node.id === 'july' ? 'bold 12px Inter, sans-serif' : isMatched ? '600 10px Inter, sans-serif' : '400 9px Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        // Truncate label if too long
         const displayLabel = node.label.length > 18 ? node.label.slice(0, 16) + '...' : node.label;
         ctx.fillText(displayLabel, node.x, node.y + node.radius + 12);
 
@@ -228,7 +323,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ onSelect
     simulate();
   };
 
-  // Mouse interaction handlers for dragging & clicking nodes
+  // Mouse interaction handlers
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -237,14 +332,16 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ onSelect
     const y = ((e.clientY - rect.top) / rect.height) * canvas.height;
 
     const clicked = visualNodesRef.current.find(
-      n => Math.hypot(n.x - x, n.y - y) <= n.radius + 6
+      n => Math.hypot(n.x - x, n.y - y) <= n.radius + 8
     );
 
     if (clicked) {
       draggedNodeRef.current = clicked;
       setSelectedNode(clicked);
+      selectedNodeRef.current = clicked;
     } else {
       setSelectedNode(null);
+      selectedNodeRef.current = null;
     }
   };
 
@@ -262,9 +359,10 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ onSelect
       draggedNodeRef.current.vy = 0;
     } else {
       const hovered = visualNodesRef.current.find(
-        n => Math.hypot(n.x - x, n.y - y) <= n.radius + 6
+        n => Math.hypot(n.x - x, n.y - y) <= n.radius + 8
       );
       setHoveredNode(hovered || null);
+      hoveredNodeRef.current = hovered || null;
       canvas.style.cursor = hovered ? 'pointer' : 'default';
     }
   };
@@ -313,21 +411,21 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ onSelect
             type="text"
             placeholder="Search entity node..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full bg-slate-900/90 border border-slate-800 text-xs text-white pl-9 pr-3 py-2 rounded-xl focus:outline-none focus:border-indigo-500 transition-all"
           />
         </div>
 
         {/* Category Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
-          {categories.slice(0, 7).map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+              onClick={() => handleCategoryClick(cat)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer ${
                 selectedCategory === cat
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'bg-slate-900/60 text-slate-400 hover:text-white border border-slate-800'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 scale-105 border border-indigo-400/50'
+                  : 'bg-slate-900/70 text-slate-400 hover:text-white hover:bg-slate-800/80 border border-slate-800'
               }`}
             >
               {cat}
@@ -353,7 +451,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ onSelect
 
           <div className="absolute bottom-6 left-6 text-[11px] font-mono text-slate-500 pointer-events-none flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-            <span>Drag nodes to explore relations • Click node to inspect details</span>
+            <span>Drag nodes to explore relations • Click node or category to inspect details</span>
           </div>
         </div>
 
@@ -403,7 +501,7 @@ export const KnowledgeGraphView: React.FC<KnowledgeGraphViewProps> = ({ onSelect
             ) : (
               <div className="py-16 text-center text-slate-500">
                 <Info className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-xs">Click on any node in the graph to view entity triples & relation provenance.</p>
+                <p className="text-xs">Click on any node or category pill to view entity triples & relation provenance.</p>
               </div>
             )}
           </div>
