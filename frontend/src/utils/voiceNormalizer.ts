@@ -30,6 +30,9 @@ export function normalizeVoiceQuery(text: string): string {
     .replace(/\br\s*a\s*g\b/gi, 'RAG')
     .replace(/\bv\s*a\s*s\s*t\b/gi, 'VAST')
     .replace(/\bs\s*a\s*r\s*v\s*a\s*m\b/gi, 'Sarvam')
+    .replace(/\bp\s*l\s*[riay]\b/gi, 'PLI')
+    .replace(/\bplr\b/gi, 'PLI')
+    .replace(/\bply\b/gi, 'PLI')
     .replace(/\bdatabse\b/gi, 'database')
     .replace(/\bdatbase\b/gi, 'database')
     .replace(/\bdata\s+base\b/gi, 'database');

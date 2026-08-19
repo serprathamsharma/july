@@ -207,7 +207,7 @@ const CLIENT_KNOWLEDGE_BASE = [
   },
   {
     topic: 'pli',
-    keywords: ['pli', 'scheme', 'incentive', 'manufacturing', 'india'],
+    keywords: ['pli', 'plr', 'ply', 'scheme', 'manufacturing scheme', 'incentive', 'manufacturing incentives', 'production linked'],
     answer: "The Production-Linked Incentive (PLI) scheme provides financial incentives to boost domestic manufacturing and attract investments in critical sectors including electronics, IT hardware, and pharmaceuticals in India [PLI_SCHEME_DOC_006].",
     citations: ['PLI Scheme Overview #006', 'Economic Survey Data #022'],
     parent_doc: 'INDIA_PLI_POLICY'
@@ -220,17 +220,41 @@ function generateClientFallbackResponse(query: string, mode: string = "RAG"): RA
   // Specific match priority
   let matched = CLIENT_KNOWLEDGE_BASE.find(k => k.keywords.some(kw => lower.includes(kw)));
 
+  const requestId = `req_${Date.now()}`;
+
+  // If query does not match any domain knowledge concepts -> Honest Abstention
   if (!matched) {
-    matched = {
-      topic: 'general',
-      keywords: [],
-      answer: `Based on the MSMARCO-XI grounded corpus, "${query}" is retrieved and verified using hybrid FAISS dense vector matching and BM25 lexical scoring with Reciprocal Rank Fusion [MSMARCO_XI_GROUNDED_007].`,
-      citations: ['MSMARCO-XI Grounded Index #007', 'Hybrid RRF Engine #002'],
-      parent_doc: 'MSMARCO_XI_CORPUS'
+    return {
+      request_id: requestId,
+      query: query,
+      transcription: query,
+      answer: "I couldn't find enough relevant information in the knowledge base to answer that.",
+      supported: false,
+      confidence: 0.0,
+      citations: [],
+      follow_up_questions: [
+        "What is the MSMARCO-XI dataset designed for?",
+        "What vector indexing algorithms are supported by FAISS?",
+        "Where is Goa located and what is it famous for?"
+      ],
+      retrieved_chunks: [],
+      metrics: {
+        request_id: requestId,
+        stt_ms: 58.2,
+        query_processing_ms: 1.1,
+        embedding_ms: 0.0,
+        dense_retrieval_ms: 0.0,
+        bm25_ms: 1.2,
+        fusion_ms: 0.2,
+        generation_ms: 12.0,
+        guardrail_ms: 1.5,
+        ttft_ms: 22.0,
+        cache_hit: false,
+        total_ms: 36.5,
+        mode: mode
+      }
     };
   }
-
-  const requestId = `req_${Date.now()}`;
   return {
     request_id: requestId,
     query: query,

@@ -372,8 +372,16 @@ class GroundedLLMGenerator:
             matched_predicates = [pkw for pkw in predicate_keywords if pkw in s_lower]
             predicate_count = len(matched_predicates)
 
+            # Weighted keyword matching: domain entities & specific terms have higher weight than generic stop words
+            weighted_kw_score = 0.0
+            for kw in matched_kws:
+                if kw in {"india", "indian", "system", "systems", "data", "tell", "explain"}:
+                    weighted_kw_score += 0.5
+                else:
+                    weighted_kw_score += 4.0
+
             # Base relevance score with strong predicate keyword weighting
-            score = (match_count * 2.0) + (predicate_count * 8.0) + (item["rrf_score"] * 8.0) + (item["dense_score"] * 2.0)
+            score = weighted_kw_score + (predicate_count * 8.0) + (item["rrf_score"] * 8.0) + (item["dense_score"] * 2.0)
             
             # Intent-specific heuristic boosts
             if intent == "ATTRIBUTIVE":
@@ -383,7 +391,7 @@ class GroundedLLMGenerator:
                 if any(loc in s_lower for loc in ["located in", "state in", "coastal state", "western india", "arabian sea", "situated in"]):
                     score += 12.0
             elif intent == "PURPOSE":
-                if any(p in s_lower for p in ["designed for", "used for", "benchmark", "integrates", "purpose"]):
+                if any(p in s_lower for p in ["designed for", "used for", "benchmark", "integrates", "purpose", "incentives"]):
                     score += 8.0
             elif intent == "DEFINITIONAL":
                 if any(s_lower.startswith(f"{kw} is") or s_lower.startswith(f"the {kw}") or " is a " in s_lower for kw in keywords):
@@ -398,7 +406,8 @@ class GroundedLLMGenerator:
                 if any(kw in s_lower for kw in keywords):
                     score += 4.0
 
-            if match_count > 0 or predicate_count > 0 or not keywords:
+            # Only consider sentences that actually contain matched query or predicate concepts
+            if match_count > 0 or predicate_count > 0:
                 scored_sentences.append((score, s_text, item["chunk_id"], matched_kws + matched_predicates))
 
         if scored_sentences:
@@ -442,14 +451,17 @@ class GroundedLLMGenerator:
             
             confidence = min(0.98, 0.88 + (len(covered_keywords) * 0.02))
         else:
-            # Fallback to the cleanest top chunk passage
-            top_chunk = chunks[0]
-            top_text = self._clean_text(top_chunk.chunk.text)
-            if not top_text or len(top_text) < 15:
-                top_text = self._clean_text(top_chunk.chunk.parent_document)
-            
-            final_answer = top_text or "I couldn't find enough relevant information in the knowledge base to answer that."
-            confidence = 0.85
+            # When no candidate sentences match query concepts -> Honest Abstention
+            gen_ms = (time.perf_counter() - start) * 1000
+            return GroundedResponseSchema(
+                answer="I couldn't find enough relevant information in the knowledge base to answer that.",
+                supported=False,
+                confidence=0.0,
+                citations=[],
+                follow_up_questions=self._generate_follow_up_questions(query, "", chunks),
+                generation_ms=round(gen_ms, 2),
+                provider="grounded_local"
+            )
 
         citations = [sc.chunk.chunk_id for sc in chunks[:3]]
         gen_ms = (time.perf_counter() - start) * 1000

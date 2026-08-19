@@ -190,6 +190,11 @@ class QueryGuardrail:
         "chank": "chunk",
         "databse": "database",
         "datbase": "database",
+        "plr": "PLI",
+        "ply": "PLI",
+        "plai": "PLI",
+        "faas": "FAISS",
+        "fase": "FAISS",
     }
 
     def correct_spelling(self, query: str) -> str:
@@ -261,7 +266,10 @@ class QueryGuardrail:
         normalized = re.sub(r'\bdatabse\b', 'database', normalized, flags=re.IGNORECASE)
         normalized = re.sub(r'\bdatbase\b', 'database', normalized, flags=re.IGNORECASE)
         normalized = re.sub(r'\bdata\s+base\b', 'database', normalized, flags=re.IGNORECASE)
-        normalized = re.sub(r'\bpli\s+scheme\b', 'PLI manufacturing incentives', normalized, flags=re.IGNORECASE)
+        normalized = re.sub(r'\bp\s*l\s*[riay]\b', 'PLI', normalized, flags=re.IGNORECASE)
+        normalized = re.sub(r'\bplr\b', 'PLI', normalized, flags=re.IGNORECASE)
+        normalized = re.sub(r'\bply\b', 'PLI', normalized, flags=re.IGNORECASE)
+        normalized = re.sub(r'\bpli\s+scheme\b', 'PLI manufacturing scheme', normalized, flags=re.IGNORECASE)
         
         return normalized
 
