@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, Zap, ShieldAlert, Database, Play, BarChart3, RefreshCw, ThumbsUp, ThumbsDown, Heart } from 'lucide-react';
+import { Activity, ShieldAlert, Database, Play, BarChart3, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { type AnalyticsSummary, fetchAnalytics, runBenchmark } from '../services/api';
 
 export const AnalyticsView: React.FC = () => {
@@ -79,27 +79,18 @@ export const AnalyticsView: React.FC = () => {
       {/* Latency Percentiles Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
         <div className="glass-panel rounded-2xl p-6 border border-[#7986cb]/35 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 text-[#7986cb]/20">
-            <Zap className="w-16 h-16" />
-          </div>
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">P50 Latency</span>
           <div className="text-3xl font-extrabold text-white font-mono tracking-tight">{latency.p50} <span className="text-sm text-[#9fa8da] font-sans">ms</span></div>
           <span className="text-[11px] text-[#9fa8da]/80 font-mono mt-2 block">Median Execution Time</span>
         </div>
 
         <div className="glass-panel rounded-2xl p-6 border border-[#ff8a80]/35 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 text-[#ff8a80]/20">
-            <BarChart3 className="w-16 h-16" />
-          </div>
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">P70 Latency</span>
           <div className="text-3xl font-extrabold text-white font-mono tracking-tight">{latency.p70} <span className="text-sm text-[#ff8a80] font-sans">ms</span></div>
           <span className="text-[11px] text-[#ff8a80]/80 font-mono mt-2 block">70th Percentile Target</span>
         </div>
 
         <div className="glass-panel rounded-2xl p-6 border border-[#ab47bc]/35 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 text-[#ab47bc]/20">
-            <Activity className="w-16 h-16" />
-          </div>
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">P100 Tail Latency</span>
           <div className="text-3xl font-extrabold text-white font-mono tracking-tight">{latency.p100} <span className="text-sm text-[#ab47bc] font-sans">ms</span></div>
           <span className="text-[11px] text-[#ab47bc]/80 font-mono mt-2 block">Maximum Recorded Latency</span>
@@ -107,9 +98,6 @@ export const AnalyticsView: React.FC = () => {
 
         {/* Feedback Score Card */}
         <div className="glass-panel rounded-2xl p-6 border border-emerald-500/35 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 text-emerald-500/20">
-            <Heart className="w-16 h-16" />
-          </div>
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">User Satisfaction</span>
           <div className="text-3xl font-extrabold text-white font-mono tracking-tight">
             {feedback?.satisfaction_rate ?? 100}%
