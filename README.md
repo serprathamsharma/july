@@ -201,4 +201,4 @@ python scripts/verify_production.py
 
 ---
 
-Built with pride for **HH Goa 2026**.
+Private project.
