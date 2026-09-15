@@ -286,20 +286,25 @@ class RAGOrchestrator:
                         r_eval = sec_eval
 
         if not r_eval["passed"]:
-            timer.metrics.guardrail_ms = round(guard_ms, 2)
-            final_metrics = timer.finalize()
-            analytics_store.record_request(final_metrics, guardrail_event="low_confidence")
-            return RAGPipelineResponse(
-                request_id=timer.request_id,
-                query=query,
-                answer=r_eval["message"],
-                supported=False,
-                confidence=r_eval["confidence"],
-                citations=[],
-                retrieved_chunks=[],
-                metrics=final_metrics,
-                session_id=session_id
-            )
+            active_provider = self.llm_generator._resolve_active_provider()
+            if active_provider in ("gemini", "openai"):
+                # LLM is active: proceed to generation so it can answer from world knowledge
+                pass
+            else:
+                timer.metrics.guardrail_ms = round(guard_ms, 2)
+                final_metrics = timer.finalize()
+                analytics_store.record_request(final_metrics, guardrail_event="low_confidence")
+                return RAGPipelineResponse(
+                    request_id=timer.request_id,
+                    query=query,
+                    answer=r_eval["message"],
+                    supported=False,
+                    confidence=r_eval["confidence"],
+                    citations=[],
+                    retrieved_chunks=[],
+                    metrics=final_metrics,
+                    session_id=session_id
+                )
 
         # Stage 7: Parent-Child Context Expansion & Grounded LLM Generation
         generation_chunks = []
@@ -424,8 +429,8 @@ class RAGOrchestrator:
                 request_id=timer.request_id,
                 query=normalized_query or query,
                 answer=q_val["message"],
-                supported=False,
-                confidence=0.0,
+                supported=q_val.get("supported", False),
+                confidence=q_val.get("confidence", 0.0),
                 citations=[],
                 retrieved_chunks=[],
                 metrics=final_metrics,
@@ -531,23 +536,28 @@ class RAGOrchestrator:
                         r_eval = sec_eval
 
         if not r_eval["passed"]:
-            timer.metrics.guardrail_ms = round(guard_ms, 2)
-            final_metrics = timer.finalize()
-            analytics_store.record_request(final_metrics, guardrail_event="low_confidence")
-            yield f"data: {json.dumps({'type': 'token', 'token': r_eval['message']})}\n\n"
-            resp = RAGPipelineResponse(
-                request_id=timer.request_id,
-                query=query,
-                answer=r_eval["message"],
-                supported=False,
-                confidence=r_eval["confidence"],
-                citations=[],
-                retrieved_chunks=[],
-                metrics=final_metrics,
-                session_id=session_id
-            )
-            yield f"data: {json.dumps({'type': 'done', 'response': resp.model_dump()})}\n\n"
-            return
+            active_provider = self.llm_generator._resolve_active_provider()
+            if active_provider in ("gemini", "openai"):
+                # LLM is active: proceed to generation so it can answer from world knowledge
+                pass
+            else:
+                timer.metrics.guardrail_ms = round(guard_ms, 2)
+                final_metrics = timer.finalize()
+                analytics_store.record_request(final_metrics, guardrail_event="low_confidence")
+                yield f"data: {json.dumps({'type': 'token', 'token': r_eval['message']})}\n\n"
+                resp = RAGPipelineResponse(
+                    request_id=timer.request_id,
+                    query=query,
+                    answer=r_eval["message"],
+                    supported=False,
+                    confidence=r_eval["confidence"],
+                    citations=[],
+                    retrieved_chunks=[],
+                    metrics=final_metrics,
+                    session_id=session_id
+                )
+                yield f"data: {json.dumps({'type': 'done', 'response': resp.model_dump()})}\n\n"
+                return
 
         # Stage 7: Parent-Child Context Expansion & Streaming Generation
         yield f"data: {json.dumps({'type': 'stage', 'stage': 'generating', 'detail': 'Generating grounded synthesis...'})}\n\n"

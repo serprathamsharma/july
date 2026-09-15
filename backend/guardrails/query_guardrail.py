@@ -362,13 +362,53 @@ class QueryGuardrail:
                 "message": f"The current time is {time_str}."
             }
 
-        if re.search(r'^(hi|hello|hey|who are you|what is july)\b', lower_q):
+        # Identity and Bot Description queries
+        if re.search(r'\b(what(\'s| is) your name|who are you|what are you|what is july|introduce yourself|tell me about yourself|your name)\b', lower_q):
+            return {
+                "valid": False,
+                "supported": True,
+                "confidence": 1.0,
+                "reason": "identity_query",
+                "message": "I am July, a sub-200ms voice-enabled AI assistant that can answer questions on virtually any topic. How can I help you today?"
+            }
+
+        # Capabilities queries
+        if re.search(r'\b(what can you do|how can you help|what are your capabilities|what do you do)\b', lower_q):
+            return {
+                "valid": False,
+                "supported": True,
+                "confidence": 1.0,
+                "reason": "capability_query",
+                "message": "I can answer questions across general knowledge, science, history, geography, technology, economics, culture, and more, all with sub-200ms voice synthesis."
+            }
+
+        # Greetings
+        if re.search(r'^(hi|hello|hey|greetings|good\s+(morning|afternoon|evening))\b', lower_q):
             return {
                 "valid": False,
                 "supported": True,
                 "confidence": 1.0,
                 "reason": "greeting_query",
                 "message": "Hello! I am July, a sub-200ms voice-enabled grounded RAG platform. How can I help you today?"
+            }
+
+        # Small talk / Politeness
+        if re.search(r'\b(how are you|how\'re you|how is it going|how do you do)\b', lower_q):
+            return {
+                "valid": False,
+                "supported": True,
+                "confidence": 1.0,
+                "reason": "smalltalk_query",
+                "message": "I'm doing great, ready to answer any questions you have! What would you like to know?"
+            }
+
+        if re.search(r'\b(thank you|thanks|thanks a lot|thank you so much)\b', lower_q):
+            return {
+                "valid": False,
+                "supported": True,
+                "confidence": 1.0,
+                "reason": "politeness_query",
+                "message": "You're very welcome! Let me know if you need anything else."
             }
 
         return {"valid": True, "reason": None, "message": "OK"}
