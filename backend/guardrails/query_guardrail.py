@@ -146,6 +146,7 @@ class QueryGuardrail:
         return {"language": "English", "language_code": "en-IN", "script": "Latin"}
 
     SPELL_CORRECTIONS = {
+        # RAG / AI domain
         "waht": "what",
         "wat": "what",
         "wht": "what",
@@ -156,13 +157,11 @@ class QueryGuardrail:
         "famus": "famous",
         "famouse": "famous",
         "famoous": "famous",
-        "famouse": "famous",
         "bechs": "beaches",
         "beches": "beaches",
         "beache": "beaches",
         "algo": "algorithm",
         "algoritm": "algorithm",
-        "algorithms": "algorithms",
         "latncy": "latency",
         "letency": "latency",
         "retreival": "retrieval",
@@ -178,6 +177,7 @@ class QueryGuardrail:
         "fais": "FAISS",
         "faiss": "FAISS",
         "fase": "FAISS",
+        "faas": "FAISS",
         "gound": "grounded",
         "grownded": "grounded",
         "halucination": "hallucination",
@@ -193,8 +193,47 @@ class QueryGuardrail:
         "plr": "PLI",
         "ply": "PLI",
         "plai": "PLI",
-        "faas": "FAISS",
-        "fase": "FAISS",
+        # General knowledge
+        "captial": "capital",
+        "captal": "capital",
+        "counrty": "country",
+        "contry": "country",
+        "populaton": "population",
+        "populaion": "population",
+        "presiedent": "president",
+        "presdent": "president",
+        "goverment": "government",
+        "govenment": "government",
+        "parliment": "parliament",
+        "parliment": "parliament",
+        "sciene": "science",
+        "scienec": "science",
+        "histry": "history",
+        "histroy": "history",
+        "geograpy": "geography",
+        "geografy": "geography",
+        "tecnology": "technology",
+        "tecnolgy": "technology",
+        "medicne": "medicine",
+        "medcine": "medicine",
+        "ecnomy": "economy",
+        "econmy": "economy",
+        "mathmatcs": "mathematics",
+        "mathmatics": "mathematics",
+        "enviroment": "environment",
+        "enviornment": "environment",
+        "univers": "universe",
+        "univrese": "universe",
+        "astrnomy": "astronomy",
+        "astronmy": "astronomy",
+        "philosphy": "philosophy",
+        "philosofy": "philosophy",
+        "biolgy": "biology",
+        "biolgoy": "biology",
+        "chemstry": "chemistry",
+        "chemisty": "chemistry",
+        "physcs": "physics",
+        "physic": "physics",
     }
 
     def correct_spelling(self, query: str) -> str:
@@ -338,13 +377,15 @@ class QueryGuardrail:
         """
         HyDE-style semantic query expansion for short or ambiguous voice queries.
         Appends relevant domain keywords to broaden lexical & dense recall.
+        Covers both RAG/AI domain terms and general knowledge topics.
         """
         q = self.normalize_query(query)
         words = q.split()
-        if len(words) > 5:
+        if len(words) > 6:
             return q
 
         expansions = {
+            # RAG / AI infrastructure
             r'\bfaiss\b': 'FAISS vector similarity search index algorithms',
             r'\bbm25\b': 'BM25 probabilistic relevance ranking term frequency IDF',
             r'\brrf\b': 'Reciprocal Rank Fusion hybrid retrieval rankings',
@@ -352,13 +393,61 @@ class QueryGuardrail:
             r'\bsarvam\b': 'Sarvam AI speech to text transcription models',
             r'\bvast\b': 'VAST variable adaptive semantic text chunking',
             r'\brag\b': 'Retrieval-Augmented Generation hallucinations groundedness',
-            r'\bgoa\b': 'Goa culture hackathons developer ecosystem Western India'
+            r'\bgoa\b': 'Goa culture hackathons developer ecosystem Western India',
+            # General geography
+            r'\bcapital\b': 'capital city country government seat',
+            r'\bpopulation\b': 'population people country million',
+            r'\blocated\b': 'located country region continent geography',
+            r'\bocean\b': 'ocean sea water Pacific Atlantic Indian',
+            r'\bmountain\b': 'mountain peak highest elevation Himalayas Everest',
+            r'\briver\b': 'river longest Amazon Nile water flow',
+            r'\bdesert\b': 'desert Sahara arid hot dry sand',
+            # Science
+            r'\bphotosynthesis\b': 'photosynthesis plants sunlight glucose oxygen chlorophyll',
+            r'\bdna\b': 'DNA genetics double helix chromosomes genes heredity',
+            r'\bevolution\b': 'evolution Darwin natural selection species adaptation',
+            r'\bquantum\b': 'quantum mechanics physics particles wave-particle duality',
+            r'\bgravity\b': 'gravity force mass Newton Einstein relativity',
+            r'\bblack\s*hole\b': 'black hole gravity event horizon spacetime singularity',
+            r'\bbig\s*bang\b': 'Big Bang universe origin 13.8 billion years expansion',
+            r'\bcrispr\b': 'CRISPR gene editing DNA Cas9 genomics',
+            # Health & medicine
+            r'\bvaccine\b': 'vaccine immunity antibodies pathogens immunisation',
+            r'\bdiabetes\b': 'diabetes blood sugar insulin Type 1 Type 2',
+            r'\bcancer\b': 'cancer tumour cells chemotherapy treatment disease',
+            r'\bimmu(ne|nity)\b': 'immune system white blood cells antibodies lymphocytes',
+            # History
+            r'\bww2\b|\bworld\s*war\s*2\b|\bworld\s*war\s*ii\b': 'World War II 1939 1945 Allied Nazi Germany Japan',
+            r'\brendaissance\b': 'Renaissance Italy 14th century humanism arts science',
+            r'\bindustrial\s*revolution\b': 'Industrial Revolution Britain steam power factory manufacturing',
+            r'\bindependence\b': 'independence freedom colonial nation Gandhi Nehru 1947',
+            # Technology
+            r'\bblockchain\b': 'blockchain distributed ledger Bitcoin cryptocurrency',
+            r'\bcloud\b': 'cloud computing AWS Azure Google infrastructure',
+            r'\bcybersecurity\b': 'cybersecurity encryption firewall threat protection',
+            r'\binternet\b': 'Internet TCP/IP ARPANET global network web',
+            r'\bpython\b': 'Python programming language code scripting data',
+            r'\bai\b|\bartificial\s*intelligence\b': 'artificial intelligence machine learning deep learning neural',
+            # Economics
+            r'\bgdp\b': 'GDP Gross Domestic Product economy output growth',
+            r'\binflation\b': 'inflation prices purchasing power central bank interest rate',
+            r'\bstock\s*market\b': 'stock market NYSE shares equity investing trading',
+            r'\bcryptocurrency\b': 'cryptocurrency Bitcoin Ethereum blockchain decentralised',
+            # Space
+            r'\bmoon\b': 'Moon Earth satellite Apollo astronaut lunar orbit',
+            r'\bmars\b': 'Mars Red Planet NASA rover Perseverance solar system',
+            r'\bsolar\s*system\b': 'solar system Sun planets Mercury Venus Earth Mars Jupiter',
+            r'\btelescope\b': 'telescope James Webb Hubble space observatory infrared',
+            # India-specific
+            r'\bisro\b': 'ISRO Indian Space Research Organisation Chandrayaan satellite',
+            r'\btaj\s*mahal\b': 'Taj Mahal Agra Mughal Shah Jahan marble monument UNESCO',
+            r'\bupi\b': 'UPI Unified Payments Interface NPCI digital payment India',
+            r'\bipl\b': 'IPL Indian Premier League cricket T20 BCCI',
         }
 
         expanded = q
         for pattern, enriched in expansions.items():
             if re.search(pattern, q, re.IGNORECASE):
-                # Avoid duplicating exact word
                 expanded = f"{q} ({enriched})"
                 break
 

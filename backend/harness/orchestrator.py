@@ -322,7 +322,9 @@ class RAGOrchestrator:
 
         # Stage 8: Grounding Verification Guardrail
         t_gver_start = time.perf_counter()
-        g_val = self.grounding_guardrail.verify_grounding(llm_resp.answer, fused_chunks)
+        g_val = self.grounding_guardrail.verify_grounding(
+            llm_resp.answer, fused_chunks, provider=llm_resp.provider
+        )
         total_guard_ms = guard_ms + (time.perf_counter() - t_gver_start) * 1000
         timer.metrics.guardrail_ms = round(total_guard_ms, 2)
 
@@ -332,7 +334,7 @@ class RAGOrchestrator:
             return RAGPipelineResponse(
                 request_id=timer.request_id,
                 query=query,
-                answer="I couldn't find enough relevant information in the knowledge base to answer that.",
+                answer="I don't have enough verified information to answer that question confidently.",
                 supported=False,
                 confidence=0.0,
                 citations=[],
@@ -579,7 +581,9 @@ class RAGOrchestrator:
 
         # Stage 8: Grounding Verification
         t_gver_start = time.perf_counter()
-        g_val = self.grounding_guardrail.verify_grounding(llm_resp.answer, fused_chunks) if llm_resp else {"grounded": True}
+        g_val = self.grounding_guardrail.verify_grounding(
+            llm_resp.answer, fused_chunks, provider=llm_resp.provider
+        ) if llm_resp else {"grounded": True}
         total_guard_ms = guard_ms + (time.perf_counter() - t_gver_start) * 1000
         timer.metrics.guardrail_ms = round(total_guard_ms, 2)
 
